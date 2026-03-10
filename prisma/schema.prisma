@@ -1,0 +1,310 @@
+// prisma/schema.prisma
+// CostLens AI — Database Schema
+// Tracks AI spend across providers, teams, and projects
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// AUTH & ORGANIZATION
+// ============================================================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users       User[]
+  teams       Team[]
+  connectors  Connector[]
+  costRecords CostRecord[]
+  budgetAlerts BudgetAlert[]
+  apiKeys     ApiKeyMapping[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String?
+  hashedPassword String?
+  role           UserRole @default(MEMBER)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id])
+
+  @@map("users")
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#00E5A0")
+  createdAt DateTime @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  users       User[]
+  apiKeys     ApiKeyMapping[]
+  costRecords CostRecord[]
+
+  @@unique([organizationId, name])
+  @@map("teams")
+}
+
+// ============================================================
+// AI PROVIDER CONNECTORS
+// ============================================================
+
+model Connector {
+  id           String         @id @default(cuid())
+  provider     AIProvider
+  status       ConnectorStatus @default(PENDING)
+  lastSyncAt   DateTime?
+  lastError    String?
+  syncInterval Int            @default(3600) // seconds
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Encrypted credentials stored separately
+  credentialId String?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  costRecords CostRecord[]
+
+  @@unique([organizationId, provider])
+  @@map("connectors")
+}
+
+// Maps provider API keys to teams for attribution
+model ApiKeyMapping {
+  id          String @id @default(cuid())
+  keyPrefix   String // First 8 chars of API key (for matching, never store full key)
+  keyAlias    String? // Human-readable name like "Marketing GPT Key"
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id])
+
+  provider AIProvider
+  
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, keyPrefix, provider])
+  @@map("api_key_mappings")
+}
+
+// ============================================================
+// COST RECORDS — The core data model
+// ============================================================
+
+model CostRecord {
+  id        String   @id @default(cuid())
+  
+  // Provider info
+  provider  AIProvider
+  model     String?        // e.g., "gpt-4o", "claude-sonnet-4-20250514"
+  service   String?        // e.g., "chat-completions", "embeddings"
+  
+  // Cost data (normalized to USD)
+  costUsd       Decimal  @db.Decimal(12, 6)
+  originalCost  Decimal? @db.Decimal(12, 6) // If converted from another currency
+  currency      String   @default("USD")
+  
+  // Usage data
+  usageUnit     UsageUnit?
+  usageAmount   Decimal?  @db.Decimal(16, 4)
+  inputTokens   Int?
+  outputTokens  Int?
+  
+  // Attribution
+  confidence    AttributionConfidence @default(CONFIRMED)
+  apiKeyPrefix  String?   // For matching to teams
+  userId        String?   // If user-level tracking available
+  projectTag    String?   // Optional project/cost-center tag
+  
+  // Time
+  usageDate     DateTime  // When the usage occurred
+  billingPeriod String?   // e.g., "2026-03" for monthly billing
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  syncedAt  DateTime @default(now())
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  connectorId String?
+  connector   Connector? @relation(fields: [connectorId], references: [id])
+  
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id])
+
+  @@index([organizationId, usageDate])
+  @@index([organizationId, provider])
+  @@index([organizationId, teamId, usageDate])
+  @@index([apiKeyPrefix])
+  @@map("cost_records")
+}
+
+// ============================================================
+// BUDGET ALERTS
+// ============================================================
+
+model BudgetAlert {
+  id          String      @id @default(cuid())
+  name        String
+  threshold   Decimal     @db.Decimal(12, 2)  // USD amount
+  period      AlertPeriod @default(MONTHLY)
+  scope       AlertScope  @default(ORGANIZATION)
+  scopeFilter String?     // team ID, provider name, or model name
+  enabled     Boolean     @default(true)
+  
+  lastTriggeredAt DateTime?
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("budget_alerts")
+}
+
+// ============================================================
+// PRICING REFERENCE (for normalization)
+// ============================================================
+
+model PricingRule {
+  id          String     @id @default(cuid())
+  provider    AIProvider
+  model       String
+  service     String     @default("default")
+  
+  inputPricePer1k   Decimal? @db.Decimal(10, 8) // Price per 1K input tokens
+  outputPricePer1k  Decimal? @db.Decimal(10, 8) // Price per 1K output tokens
+  pricePerUnit      Decimal? @db.Decimal(10, 8) // Generic per-unit price
+  unitType          String?  // "token", "image", "minute", etc.
+  
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  
+  createdAt DateTime @default(now())
+
+  @@index([provider, model, effectiveFrom])
+  @@map("pricing_rules")
+}
+
+// ============================================================
+// SYNC LOG (for debugging and monitoring)
+// ============================================================
+
+model SyncLog {
+  id          String    @id @default(cuid())
+  provider    AIProvider
+  status      SyncStatus
+  recordsProcessed Int   @default(0)
+  errorMessage String?
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  
+  organizationId String
+
+  @@index([organizationId, startedAt])
+  @@map("sync_logs")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Plan {
+  FREE
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum AIProvider {
+  OPENAI
+  ANTHROPIC
+  AWS_BEDROCK
+  AZURE_OPENAI
+  GOOGLE_VERTEX
+  COHERE
+  REPLICATE
+  HUGGINGFACE
+  MISTRAL
+  PERPLEXITY
+  CUSTOM
+}
+
+enum ConnectorStatus {
+  PENDING
+  ACTIVE
+  ERROR
+  DISABLED
+}
+
+enum UsageUnit {
+  TOKENS
+  API_CALLS
+  COMPUTE_SECONDS
+  IMAGES
+  CHARACTERS
+  CREDITS
+}
+
+enum AttributionConfidence {
+  CONFIRMED    // Direct API data with clear ownership
+  ESTIMATED    // Inferred from patterns or partial data
+  UNATTRIBUTED // Cost is real but can't determine who/what
+}
+
+enum AlertPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum AlertScope {
+  ORGANIZATION
+  TEAM
+  PROVIDER
+  MODEL
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+}
