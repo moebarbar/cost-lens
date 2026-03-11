@@ -36,8 +36,14 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+
+# We must copy over ALL node_modules so Next.js standalone and Prisma can run
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+# Generate Prisma client natively inside the runner container 
+# This ensures it links against the exact OpenSSL and libmusl present in this layer
+RUN npx prisma generate
 
 USER nextjs
 
