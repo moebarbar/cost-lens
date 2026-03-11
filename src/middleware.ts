@@ -16,7 +16,7 @@ export default withAuth(
         const { pathname } = req.nextUrl;
 
         // Public routes — always accessible
-        const publicRoutes = ["/login", "/register", "/", "/api/auth"];
+        const publicRoutes = ["/login", "/register", "/", "/api/auth", "/api/health"];
         if (publicRoutes.some((route) => pathname.startsWith(route))) {
           return true;
         }
