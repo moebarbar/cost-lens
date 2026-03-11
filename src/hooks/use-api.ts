@@ -239,10 +239,13 @@ export function useTeams() {
     id: string;
     name: string;
     color: string;
+    createdAt: string;
     memberCount: number;
-    monthlySpend: number;
-    topModels: string[];
-    apiKeyCount: number;
+    members: Array<{ id: string; name: string | null; email: string }>;
+    apiKeys: Array<{ id: string; keyPrefix: string; keyAlias: string | null; provider: string }>;
+    recordCount: number;
+    currentMonthSpend: number;
+    topModels?: string[];
   }>>("/teams");
 }
 

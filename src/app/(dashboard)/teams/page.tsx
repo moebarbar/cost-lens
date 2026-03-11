@@ -72,20 +72,20 @@ export default function TeamsPage() {
                 <div>
                   <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "4px" }}>Monthly Spend</div>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: "20px", fontWeight: 600, color: "var(--accent)" }}>
-                    ${team.monthlySpend.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${(team.currentMonthSpend ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "4px" }}>API Keys</div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "20px", fontWeight: 600 }}>{team.apiKeyCount}</div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "20px", fontWeight: 600 }}>{team.apiKeys?.length ?? 0}</div>
                 </div>
               </div>
 
-              {team.topModels.length > 0 && (
+              {(team.topModels?.length ?? 0) > 0 && (
                 <div>
                   <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Top models</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                    {team.topModels.slice(0, 3).map(m => (
+                    {team.topModels!.slice(0, 3).map(m => (
                       <span key={m} className="badge badge-muted" style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>{m}</span>
                     ))}
                   </div>
