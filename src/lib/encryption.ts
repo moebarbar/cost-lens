@@ -10,13 +10,13 @@ const SALT_LENGTH = 32;
 const TAG_LENGTH = 16;
 const KEY_LENGTH = 32;
 
-function getEncryptionKey(): Buffer {
+function deriveKey(salt: Buffer): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   if (!key) {
     throw new Error("ENCRYPTION_KEY environment variable is not set");
   }
-  // Derive a proper key from the env variable
-  return scryptSync(key, "costlens-salt", KEY_LENGTH);
+  // Derive a proper key using the per-encryption random salt
+  return scryptSync(key, salt, KEY_LENGTH);
 }
 
 /**
@@ -24,9 +24,9 @@ function getEncryptionKey(): Buffer {
  * Returns a base64 string containing: salt + iv + tag + encrypted data
  */
 export function encrypt(plaintext: string): string {
-  const key = getEncryptionKey();
-  const iv = randomBytes(IV_LENGTH);
   const salt = randomBytes(SALT_LENGTH);
+  const key = deriveKey(salt);
+  const iv = randomBytes(IV_LENGTH);
 
   const cipher = createCipheriv(ALGORITHM, key, iv);
   const encrypted = Buffer.concat([
@@ -45,7 +45,6 @@ export function encrypt(plaintext: string): string {
  * Expects the base64 string produced by encrypt()
  */
 export function decrypt(encryptedBase64: string): string {
-  const key = getEncryptionKey();
   const buffer = Buffer.from(encryptedBase64, "base64");
 
   // Extract components
@@ -57,6 +56,7 @@ export function decrypt(encryptedBase64: string): string {
   );
   const encrypted = buffer.subarray(SALT_LENGTH + IV_LENGTH + TAG_LENGTH);
 
+  const key = deriveKey(salt);
   const decipher = createDecipheriv(ALGORITHM, key, iv);
   decipher.setAuthTag(tag);
 

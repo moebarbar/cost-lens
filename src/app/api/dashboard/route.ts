@@ -3,6 +3,7 @@
 // Returns all data needed for the main dashboard view
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 import {
   getDashboardOverview,
   getSpendByProvider,
@@ -16,12 +17,12 @@ import {
 // GET /api/dashboard?period=30d&groupBy=day
 export async function GET(request: NextRequest) {
   try {
+    const user = await requireAuth();
     const searchParams = request.nextUrl.searchParams;
     const period = searchParams.get("period") || "30d";
     const groupBy = (searchParams.get("groupBy") as "day" | "week" | "month") || "day";
 
-    // TODO: Get orgId from authenticated session
-    const orgId = "demo-org";
+    const orgId = user.organizationId;
 
     // Calculate date range from period
     const now = new Date();
@@ -80,7 +81,10 @@ export async function GET(request: NextRequest) {
         },
       },
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     console.error("Dashboard API error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to load dashboard data" },

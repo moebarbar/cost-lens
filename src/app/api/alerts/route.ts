@@ -3,23 +3,30 @@
 // CRUD operations for budget alerts
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
+import prisma from "@/lib/db";
 
 // GET /api/alerts — List all alerts for the org
 export async function GET(request: NextRequest) {
   try {
-    const orgId = "demo-org"; // TODO: Get from session
+    const user = await requireAuth();
 
-    // TODO: Fetch from database
-    // const alerts = await prisma.budgetAlert.findMany({
-    //   where: { organizationId: orgId },
-    //   orderBy: { createdAt: 'desc' },
-    // });
+    const alerts = await prisma.budgetAlert.findMany({
+      where: { organizationId: user.organizationId },
+      orderBy: { createdAt: "desc" },
+    });
 
     return NextResponse.json({
       success: true,
-      data: [],
+      data: alerts.map((a) => ({
+        ...a,
+        threshold: Number(a.threshold),
+      })),
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json(
       { success: false, error: "Failed to fetch alerts" },
       { status: 500 }
@@ -30,8 +37,8 @@ export async function GET(request: NextRequest) {
 // POST /api/alerts — Create a new budget alert
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireAuth();
     const body = await request.json();
-    const orgId = "demo-org"; // TODO: Get from session
 
     const { name, threshold, period, scope, scopeFilter, enabled } = body;
 
@@ -50,33 +57,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Insert into database
-    // const alert = await prisma.budgetAlert.create({
-    //   data: {
-    //     name,
-    //     threshold,
-    //     period,
-    //     scope,
-    //     scopeFilter,
-    //     enabled: enabled ?? true,
-    //     organizationId: orgId,
-    //   },
-    // });
-
-    return NextResponse.json({
-      success: true,
+    const alert = await prisma.budgetAlert.create({
       data: {
-        id: "placeholder-id",
         name,
         threshold,
         period,
         scope,
-        scopeFilter,
+        scopeFilter: scopeFilter || null,
         enabled: enabled ?? true,
+        organizationId: user.organizationId,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...alert,
+        threshold: Number(alert.threshold),
         message: "Budget alert created successfully",
       },
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json(
       { success: false, error: "Failed to create alert" },
       { status: 500 }
@@ -87,9 +91,9 @@ export async function POST(request: NextRequest) {
 // PUT /api/alerts — Update an existing alert
 export async function PUT(request: NextRequest) {
   try {
+    const user = await requireAuth();
     const body = await request.json();
     const { id, ...updates } = body;
-    const orgId = "demo-org"; // TODO: Get from session
 
     if (!id) {
       return NextResponse.json(
@@ -98,17 +102,35 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // TODO: Update in database
-    // const alert = await prisma.budgetAlert.update({
-    //   where: { id, organizationId: orgId },
-    //   data: updates,
-    // });
+    // Verify ownership before updating
+    const existing = await prisma.budgetAlert.findFirst({
+      where: { id, organizationId: user.organizationId },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "Alert not found" },
+        { status: 404 }
+      );
+    }
+
+    const alert = await prisma.budgetAlert.update({
+      where: { id },
+      data: updates,
+    });
 
     return NextResponse.json({
       success: true,
-      data: { id, ...updates, message: "Alert updated successfully" },
+      data: {
+        ...alert,
+        threshold: Number(alert.threshold),
+        message: "Alert updated successfully",
+      },
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json(
       { success: false, error: "Failed to update alert" },
       { status: 500 }
@@ -119,9 +141,9 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/alerts — Delete an alert
 export async function DELETE(request: NextRequest) {
   try {
+    const user = await requireAuth();
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get("id");
-    const orgId = "demo-org"; // TODO: Get from session
 
     if (!id) {
       return NextResponse.json(
@@ -130,16 +152,30 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // TODO: Delete from database
-    // await prisma.budgetAlert.delete({
-    //   where: { id, organizationId: orgId },
-    // });
+    // Verify ownership before deleting
+    const existing = await prisma.budgetAlert.findFirst({
+      where: { id, organizationId: user.organizationId },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "Alert not found" },
+        { status: 404 }
+      );
+    }
+
+    await prisma.budgetAlert.delete({
+      where: { id },
+    });
 
     return NextResponse.json({
       success: true,
       data: { message: "Alert deleted successfully" },
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json(
       { success: false, error: "Failed to delete alert" },
       { status: 500 }

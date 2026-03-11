@@ -4,11 +4,11 @@ import { useState } from "react";
 import { useConnectors, addConnector, deleteConnector, syncConnector } from "@/hooks/use-api";
 
 const PROVIDER_OPTIONS = [
-  { value: "OPENAI",        label: "OpenAI",         icon: "🟢", color: "#00A67E", field: "apiKey",       placeholder: "sk-..." },
-  { value: "ANTHROPIC",     label: "Anthropic",      icon: "🟠", color: "#D4A574", field: "apiKey",       placeholder: "sk-ant-..." },
-  { value: "AWS_BEDROCK",   label: "AWS Bedrock",    icon: "🟡", color: "#FF9900", field: "accessKeyId",  placeholder: "AKIA..." },
-  { value: "AZURE_OPENAI",  label: "Azure OpenAI",   icon: "🔵", color: "#0078D4", field: "apiKey",       placeholder: "Azure API key..." },
-  { value: "GOOGLE_VERTEX", label: "Google Vertex",  icon: "🔷", color: "#4285F4", field: "serviceAccount", placeholder: "JSON service account..." },
+  { value: "OPENAI",        label: "OpenAI",         icon: "🟢", color: "#00A67E", field: "apiKey",       placeholder: "sk-...",                  comingSoon: false },
+  { value: "ANTHROPIC",     label: "Anthropic",      icon: "🟠", color: "#D4A574", field: "apiKey",       placeholder: "sk-ant-...",              comingSoon: false },
+  { value: "AWS_BEDROCK",   label: "AWS Bedrock",    icon: "🟡", color: "#FF9900", field: "accessKeyId",  placeholder: "AKIA...",                 comingSoon: true },
+  { value: "AZURE_OPENAI",  label: "Azure OpenAI",   icon: "🔵", color: "#0078D4", field: "apiKey",       placeholder: "Azure API key...",        comingSoon: true },
+  { value: "GOOGLE_VERTEX", label: "Google Vertex",  icon: "🔷", color: "#4285F4", field: "serviceAccount", placeholder: "JSON service account...", comingSoon: true },
 ];
 
 const STATUS_BADGE: Record<string, string> = {
@@ -155,22 +155,41 @@ export default function ConnectorsPage() {
                     <button
                       key={p.value}
                       type="button"
-                      onClick={() => { setSelectedProvider(p); setCredValue(""); }}
+                      onClick={() => { if (!p.comingSoon) { setSelectedProvider(p); setCredValue(""); } }}
+                      disabled={p.comingSoon}
                       style={{
                         padding: "10px 4px",
                         borderRadius: "var(--radius-md)",
-                        border: `2px solid ${selectedProvider.value === p.value ? p.color : "var(--border)"}`,
-                        background: selectedProvider.value === p.value ? `${p.color}15` : "var(--bg-input)",
-                        cursor: "pointer",
+                        border: `2px solid ${selectedProvider.value === p.value && !p.comingSoon ? p.color : "var(--border)"}`,
+                        background: p.comingSoon ? "var(--bg-input)" : selectedProvider.value === p.value ? `${p.color}15` : "var(--bg-input)",
+                        cursor: p.comingSoon ? "not-allowed" : "pointer",
+                        opacity: p.comingSoon ? 0.5 : 1,
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
                         gap: "4px",
                         transition: "all var(--transition)",
+                        position: "relative" as const,
                       }}
                     >
                       <span style={{ fontSize: "18px" }}>{p.icon}</span>
                       <span style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 500 }}>{p.label.split(" ")[0]}</span>
+                      {p.comingSoon && (
+                        <span style={{
+                          position: "absolute",
+                          top: "-6px",
+                          right: "-6px",
+                          fontSize: "7px",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                          background: "var(--text-subtle)",
+                          color: "var(--bg-primary)",
+                          padding: "2px 4px",
+                          borderRadius: "4px",
+                          whiteSpace: "nowrap",
+                        }}>Soon</span>
+                      )}
                     </button>
                   ))}
                 </div>

@@ -4,12 +4,14 @@
 // POST: Manually add cost records (for CSV upload / manual entry)
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
+import prisma from "@/lib/db";
 
 // GET /api/costs?provider=OPENAI&team=engineering&dateFrom=2026-01-01&dateTo=2026-03-09&page=1&pageSize=50
 export async function GET(request: NextRequest) {
   try {
+    const user = await requireAuth();
     const searchParams = request.nextUrl.searchParams;
-    const orgId = "demo-org"; // TODO: Get from session
 
     // Parse filters
     const filters = {
@@ -28,36 +30,52 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get("sortBy") || "usageDate";
     const sortOrder = searchParams.get("sortOrder") || "desc";
 
-    // TODO: Query database with Prisma
-    // const where: any = { organizationId: orgId };
-    // if (filters.provider) where.provider = filters.provider;
-    // if (filters.team) where.teamId = filters.team;
-    // if (filters.model) where.model = { contains: filters.model };
-    // if (filters.dateFrom) where.usageDate = { ...where.usageDate, gte: new Date(filters.dateFrom) };
-    // if (filters.dateTo) where.usageDate = { ...where.usageDate, lte: new Date(filters.dateTo) };
-    //
-    // const [records, total] = await Promise.all([
-    //   prisma.costRecord.findMany({
-    //     where,
-    //     orderBy: { [sortBy]: sortOrder },
-    //     skip: (page - 1) * pageSize,
-    //     take: pageSize,
-    //     include: { team: true, connector: true },
-    //   }),
-    //   prisma.costRecord.count({ where }),
-    // ]);
+    // Build where clause
+    const where: any = { organizationId: user.organizationId };
+    if (filters.provider) where.provider = filters.provider;
+    if (filters.team) where.teamId = filters.team;
+    if (filters.model) where.model = { contains: filters.model, mode: "insensitive" };
+    if (filters.dateFrom || filters.dateTo) {
+      where.usageDate = {};
+      if (filters.dateFrom) where.usageDate.gte = new Date(filters.dateFrom);
+      if (filters.dateTo) where.usageDate.lte = new Date(filters.dateTo);
+    }
+    if (filters.minCost !== undefined || filters.maxCost !== undefined) {
+      where.costUsd = {};
+      if (filters.minCost !== undefined) where.costUsd.gte = filters.minCost;
+      if (filters.maxCost !== undefined) where.costUsd.lte = filters.maxCost;
+    }
+
+    const [records, total] = await Promise.all([
+      prisma.costRecord.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: { team: true, connector: true },
+      }),
+      prisma.costRecord.count({ where }),
+    ]);
 
     return NextResponse.json({
       success: true,
-      data: [],
+      data: records.map((r) => ({
+        ...r,
+        costUsd: Number(r.costUsd),
+        originalCost: r.originalCost ? Number(r.originalCost) : null,
+        usageAmount: r.usageAmount ? Number(r.usageAmount) : null,
+      })),
       meta: {
-        total: 0,
+        total,
         page,
         pageSize,
-        totalPages: 0,
+        totalPages: Math.ceil(total / pageSize),
       },
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     console.error("Cost records API error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to fetch cost records" },
@@ -71,6 +89,7 @@ export async function GET(request: NextRequest) {
 // Used for CSV upload or manual entry
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireAuth();
     const body = await request.json();
     const { records } = body;
 
@@ -81,8 +100,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const orgId = "demo-org"; // TODO: Get from session
-
     // Validate each record
     const errors: string[] = [];
     const validRecords = records.filter((r: any, i: number) => {
@@ -92,24 +109,37 @@ export async function POST(request: NextRequest) {
       return true;
     });
 
-    // TODO: Insert into database
-    // const created = await prisma.costRecord.createMany({
-    //   data: validRecords.map(r => ({
-    //     ...r,
-    //     organizationId: orgId,
-    //     confidence: 'ESTIMATED',
-    //   })),
-    //   skipDuplicates: true,
-    // });
+    const created = await prisma.costRecord.createMany({
+      data: validRecords.map((r: any) => ({
+        provider: r.provider,
+        model: r.model || null,
+        service: r.service || null,
+        costUsd: r.costUsd,
+        usageUnit: r.usageUnit || null,
+        usageAmount: r.usageAmount || null,
+        inputTokens: r.inputTokens || null,
+        outputTokens: r.outputTokens || null,
+        usageDate: new Date(r.usageDate),
+        billingPeriod: r.billingPeriod || null,
+        apiKeyPrefix: r.apiKeyPrefix || null,
+        projectTag: r.projectTag || null,
+        confidence: "ESTIMATED",
+        organizationId: user.organizationId,
+      })),
+      skipDuplicates: true,
+    });
 
     return NextResponse.json({
       success: true,
       data: {
-        inserted: validRecords.length,
+        inserted: created.count,
         errors: errors.length > 0 ? errors : undefined,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     console.error("Cost records POST error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to insert cost records" },

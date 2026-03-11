@@ -3,35 +3,62 @@
 // Manage teams and map API keys to teams for cost attribution
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
+import prisma from "@/lib/db";
 
 // GET /api/teams — List all teams with their cost summaries
 export async function GET(request: NextRequest) {
   try {
-    const orgId = "demo-org"; // TODO: Get from session
+    const user = await requireAuth();
 
-    // TODO: Fetch from database with cost aggregation
-    // const teams = await prisma.team.findMany({
-    //   where: { organizationId: orgId },
-    //   include: {
-    //     users: { select: { id: true, name: true, email: true } },
-    //     apiKeys: true,
-    //     _count: { select: { costRecords: true } },
-    //   },
-    // });
-    //
-    // // Get current month spend per team
-    // const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    // const teamSpend = await prisma.costRecord.groupBy({
-    //   by: ['teamId'],
-    //   where: { organizationId: orgId, usageDate: { gte: startOfMonth } },
-    //   _sum: { costUsd: true },
-    // });
+    const teams = await prisma.team.findMany({
+      where: { organizationId: user.organizationId },
+      include: {
+        users: { select: { id: true, name: true, email: true } },
+        apiKeys: true,
+        _count: { select: { costRecords: true } },
+      },
+    });
+
+    // Get current month spend per team
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const teamSpend = await prisma.costRecord.groupBy({
+      by: ["teamId"],
+      where: {
+        organizationId: user.organizationId,
+        usageDate: { gte: startOfMonth },
+        teamId: { not: null },
+      },
+      _sum: { costUsd: true },
+    });
+
+    const spendMap = new Map(
+      teamSpend.map((s) => [s.teamId, Number(s._sum.costUsd ?? 0)])
+    );
 
     return NextResponse.json({
       success: true,
-      data: [],
+      data: teams.map((t) => ({
+        id: t.id,
+        name: t.name,
+        color: t.color,
+        createdAt: t.createdAt.toISOString(),
+        memberCount: t.users.length,
+        members: t.users,
+        apiKeys: t.apiKeys.map((k) => ({
+          id: k.id,
+          keyPrefix: k.keyPrefix,
+          keyAlias: k.keyAlias,
+          provider: k.provider,
+        })),
+        recordCount: t._count.costRecords,
+        currentMonthSpend: spendMap.get(t.id) ?? 0,
+      })),
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json(
       { success: false, error: "Failed to fetch teams" },
       { status: 500 }
@@ -42,8 +69,8 @@ export async function GET(request: NextRequest) {
 // POST /api/teams — Create a new team
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireAuth();
     const body = await request.json();
-    const orgId = "demo-org"; // TODO: Get from session
 
     const { name, color } = body;
 
@@ -54,21 +81,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Create in database
-    // const team = await prisma.team.create({
-    //   data: { name, color: color || '#00E5A0', organizationId: orgId },
-    // });
+    const team = await prisma.team.create({
+      data: {
+        name,
+        color: color || "#00E5A0",
+        organizationId: user.organizationId,
+      },
+    });
 
     return NextResponse.json({
       success: true,
       data: {
-        id: "placeholder-id",
-        name,
-        color: color || "#00E5A0",
+        id: team.id,
+        name: team.name,
+        color: team.color,
         message: "Team created successfully",
       },
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    // Handle unique constraint violation (duplicate team name in org)
+    if (error.code === "P2002") {
+      return NextResponse.json(
+        { success: false, error: "A team with that name already exists" },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { success: false, error: "Failed to create team" },
       { status: 500 }
@@ -79,8 +119,8 @@ export async function POST(request: NextRequest) {
 // PUT /api/teams — Update team or add API key mapping
 export async function PUT(request: NextRequest) {
   try {
+    const user = await requireAuth();
     const body = await request.json();
-    const orgId = "demo-org"; // TODO: Get from session
 
     const { teamId, action, ...data } = body;
 
@@ -88,6 +128,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Team ID is required" },
         { status: 400 }
+      );
+    }
+
+    // Verify team belongs to this org
+    const existingTeam = await prisma.team.findFirst({
+      where: { id: teamId, organizationId: user.organizationId },
+    });
+
+    if (!existingTeam) {
+      return NextResponse.json(
+        { success: false, error: "Team not found" },
+        { status: 404 }
       );
     }
 
@@ -105,46 +157,61 @@ export async function PUT(request: NextRequest) {
       // Only store first 8 chars for security
       const safePrefix = keyPrefix.slice(0, 8);
 
-      // TODO: Create mapping in database
-      // await prisma.apiKeyMapping.create({
-      //   data: {
-      //     keyPrefix: safePrefix,
-      //     keyAlias,
-      //     provider,
-      //     teamId,
-      //     organizationId: orgId,
-      //   },
-      // });
-      //
-      // // Re-attribute existing unattributed records
-      // await prisma.costRecord.updateMany({
-      //   where: {
-      //     organizationId: orgId,
-      //     provider,
-      //     apiKeyPrefix: safePrefix,
-      //     teamId: null,
-      //   },
-      //   data: { teamId, confidence: 'CONFIRMED' },
-      // });
+      await prisma.apiKeyMapping.create({
+        data: {
+          keyPrefix: safePrefix,
+          keyAlias: keyAlias || null,
+          provider,
+          teamId,
+          organizationId: user.organizationId,
+        },
+      });
+
+      // Re-attribute existing unattributed records
+      const updated = await prisma.costRecord.updateMany({
+        where: {
+          organizationId: user.organizationId,
+          provider,
+          apiKeyPrefix: safePrefix,
+          teamId: null,
+        },
+        data: { teamId, confidence: "CONFIRMED" },
+      });
 
       return NextResponse.json({
         success: true,
-        data: { message: `API key mapped to team. Existing records will be re-attributed.` },
+        data: {
+          message: `API key mapped to team. ${updated.count} existing records re-attributed.`,
+        },
       });
     }
 
     // Default: update team info
-    // TODO: Update in database
-    // await prisma.team.update({
-    //   where: { id: teamId, organizationId: orgId },
-    //   data,
-    // });
+    const { name, color } = data;
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (color !== undefined) updateData.color = color;
+
+    await prisma.team.update({
+      where: { id: teamId },
+      data: updateData,
+    });
 
     return NextResponse.json({
       success: true,
       data: { message: "Team updated successfully" },
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    // Handle unique constraint violation for API key mapping
+    if (error.code === "P2002") {
+      return NextResponse.json(
+        { success: false, error: "This API key prefix is already mapped for this provider" },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { success: false, error: "Failed to update team" },
       { status: 500 }
