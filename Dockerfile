@@ -48,7 +48,8 @@ RUN npx prisma generate
 USER nextjs
 
 EXPOSE 3000
-ENV PORT=3000
+# Railway passes $PORT automatically, so we don't hardcode it in ENV
+# ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 CMD ["node", "server.js"]
