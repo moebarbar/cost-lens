@@ -51,16 +51,31 @@ export async function GET(request: NextRequest) {
       groupBy,
     };
 
-    // Fetch all dashboard data in parallel
+    // Fetch all dashboard data in parallel — each one is resilient to failures
+    const safeCall = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
+      try {
+        return await fn();
+      } catch (e) {
+        console.error("Dashboard aggregation error:", e);
+        return fallback;
+      }
+    };
+
     const [overview, byProvider, byTeam, byModel, timeSeries, anomalies, waste] =
       await Promise.all([
-        getDashboardOverview(orgId, dateFrom, now),
-        getSpendByProvider(orgId, filters),
-        getSpendByTeam(orgId, filters),
-        getSpendByModel(orgId, filters),
-        getSpendTimeSeries(orgId, filters),
-        detectAnomalies(orgId),
-        calculateWaste(orgId, dateFrom, now),
+        safeCall(() => getDashboardOverview(orgId, dateFrom, now), {
+          totalSpend: 0, totalSpendPrevPeriod: 0, spendChange: 0,
+          activeTools: 0, newToolsThisPeriod: 0,
+          wasteDetected: 0, roiScore: null,
+        } as any),
+        safeCall(() => getSpendByProvider(orgId, filters), []),
+        safeCall(() => getSpendByTeam(orgId, filters), []),
+        safeCall(() => getSpendByModel(orgId, filters), []),
+        safeCall(() => getSpendTimeSeries(orgId, filters), []),
+        safeCall(() => detectAnomalies(orgId), []),
+        safeCall(() => calculateWaste(orgId, dateFrom, now), {
+          totalWaste: 0, categories: [],
+        }),
       ]);
 
     return NextResponse.json({
