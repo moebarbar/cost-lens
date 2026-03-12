@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { costRecordsPostSchema, validateBody } from "@/lib/validation";
 
 // GET /api/costs?provider=OPENAI&team=engineering&dateFrom=2026-01-01&dateTo=2026-03-09&page=1&pageSize=50
 export async function GET(request: NextRequest) {
@@ -91,31 +92,18 @@ export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth();
     const body = await request.json();
-    const { records } = body;
 
-    if (!records || !Array.isArray(records) || records.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "No records provided" },
-        { status: 400 }
-      );
-    }
-
-    // Validate each record
-    const errors: string[] = [];
-    const validRecords = records.filter((r: any, i: number) => {
-      if (!r.provider) { errors.push(`Record ${i}: missing provider`); return false; }
-      if (r.costUsd === undefined || r.costUsd === null) { errors.push(`Record ${i}: missing costUsd`); return false; }
-      if (!r.usageDate) { errors.push(`Record ${i}: missing usageDate`); return false; }
-      return true;
-    });
+    // Zod validation
+    const validation = validateBody(costRecordsPostSchema, body);
+    if (!validation.success) return validation.response;
 
     const created = await prisma.costRecord.createMany({
-      data: validRecords.map((r: any) => ({
-        provider: r.provider,
+      data: validation.data.records.map((r) => ({
+        provider: r.provider as any,
         model: r.model || null,
         service: r.service || null,
         costUsd: r.costUsd,
-        usageUnit: r.usageUnit || null,
+        usageUnit: (r.usageUnit || null) as any,
         usageAmount: r.usageAmount || null,
         inputTokens: r.inputTokens || null,
         outputTokens: r.outputTokens || null,
@@ -123,7 +111,7 @@ export async function POST(request: NextRequest) {
         billingPeriod: r.billingPeriod || null,
         apiKeyPrefix: r.apiKeyPrefix || null,
         projectTag: r.projectTag || null,
-        confidence: "ESTIMATED",
+        confidence: "ESTIMATED" as any,
         organizationId: user.organizationId,
       })),
       skipDuplicates: true,
@@ -133,7 +121,6 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         inserted: created.count,
-        errors: errors.length > 0 ? errors : undefined,
       },
     });
   } catch (error: any) {

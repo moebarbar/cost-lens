@@ -8,6 +8,7 @@ import prisma from "@/lib/db";
 import { decryptCredentials } from "@/lib/encryption";
 import { createConnector, isSupportedProvider } from "@/lib/connectors/registry";
 import { processRecords } from "@/lib/services/sync-engine";
+import { checkBudgetAlerts } from "@/lib/services/cost-aggregation";
 
 export async function GET(request: NextRequest) {
   // Verify cron secret (Vercel sends this automatically)
@@ -112,11 +113,29 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log(`[CRON] Complete: ${totalSynced} synced, ${totalFailed} failed, ${totalRecords} records`);
+    console.log(`[CRON] Sync complete: ${totalSynced} synced, ${totalFailed} failed, ${totalRecords} records`);
+
+    // Check budget alerts for all organizations that had successful syncs
+    const orgIds = [...new Set(connectors.map(c => c.organizationId))];
+    let alertsTriggered = 0;
+    for (const orgId of orgIds) {
+      try {
+        const alertResults = await checkBudgetAlerts(orgId);
+        const triggered = alertResults.filter(a => a.emailSent).length;
+        alertsTriggered += triggered;
+        if (triggered > 0) {
+          console.log(`[CRON] ${triggered} alert email(s) sent for org ${orgId}`);
+        }
+      } catch (e) {
+        console.error(`[CRON] Alert check failed for org ${orgId}:`, e);
+      }
+    }
+
+    console.log(`[CRON] Alert check complete: ${alertsTriggered} email(s) sent`);
 
     return NextResponse.json({
       success: true,
-      data: { synced: totalSynced, failed: totalFailed, totalRecords },
+      data: { synced: totalSynced, failed: totalFailed, totalRecords, alertsTriggered },
     });
   } catch (error: any) {
     console.error("[CRON] Fatal error:", error);

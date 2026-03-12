@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { alertCreateSchema, alertUpdateSchema, validateBody } from "@/lib/validation";
 
 // GET /api/alerts — List all alerts for the org
 export async function GET(request: NextRequest) {
@@ -40,22 +41,11 @@ export async function POST(request: NextRequest) {
     const user = await requireAuth();
     const body = await request.json();
 
-    const { name, threshold, period, scope, scopeFilter, enabled } = body;
+    // Zod validation
+    const validation = validateBody(alertCreateSchema, body);
+    if (!validation.success) return validation.response;
 
-    // Validation
-    if (!name || !threshold || !period || !scope) {
-      return NextResponse.json(
-        { success: false, error: "Missing required fields: name, threshold, period, scope" },
-        { status: 400 }
-      );
-    }
-
-    if (threshold <= 0) {
-      return NextResponse.json(
-        { success: false, error: "Threshold must be greater than 0" },
-        { status: 400 }
-      );
-    }
+    const { name, threshold, period, scope, scopeFilter, enabled } = validation.data;
 
     const alert = await prisma.budgetAlert.create({
       data: {
@@ -93,14 +83,12 @@ export async function PUT(request: NextRequest) {
   try {
     const user = await requireAuth();
     const body = await request.json();
-    const { id, ...updates } = body;
 
-    if (!id) {
-      return NextResponse.json(
-        { success: false, error: "Missing alert ID" },
-        { status: 400 }
-      );
-    }
+    // Zod validation
+    const validation = validateBody(alertUpdateSchema, body);
+    if (!validation.success) return validation.response;
+
+    const { id, ...updates } = validation.data;
 
     // Verify ownership before updating
     const existing = await prisma.budgetAlert.findFirst({

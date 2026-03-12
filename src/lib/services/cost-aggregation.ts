@@ -397,9 +397,18 @@ export async function checkBudgetAlerts(orgId: string): Promise<{
   currentSpend: number;
   threshold: number;
   percentUsed: number;
+  emailSent?: boolean;
 }[]> {
+  const { sendBudgetAlertEmail } = await import("@/lib/services/email");
+
   const alerts = await prisma.budgetAlert.findMany({
     where: { organizationId: orgId, enabled: true },
+  });
+
+  // Get org owner email for notifications
+  const orgOwner = await prisma.user.findFirst({
+    where: { organizationId: orgId, role: "OWNER" },
+    select: { email: true },
   });
 
   const results = [];
@@ -432,12 +441,41 @@ export async function checkBudgetAlerts(orgId: string): Promise<{
     const threshold = toNum(alert.threshold);
     const percentUsed = threshold > 0 ? (currentSpend / threshold) * 100 : 0;
 
+    let emailSent = false;
+
+    // Send email if threshold exceeded and not recently triggered (6h cooldown)
+    if (percentUsed >= 90 && orgOwner?.email) {
+      const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+      const recentlyTriggered = alert.lastTriggeredAt && alert.lastTriggeredAt > sixHoursAgo;
+
+      if (!recentlyTriggered) {
+        const emailResult = await sendBudgetAlertEmail(orgOwner.email, {
+          alertName: alert.name,
+          currentSpend,
+          threshold,
+          percentUsed,
+          period: alert.period,
+          scope: alert.scope,
+          scopeFilter: alert.scopeFilter,
+        });
+
+        if (emailResult.success) {
+          emailSent = true;
+          await prisma.budgetAlert.update({
+            where: { id: alert.id },
+            data: { lastTriggeredAt: now },
+          });
+        }
+      }
+    }
+
     results.push({
       alertId: alert.id,
       alertName: alert.name,
       currentSpend,
       threshold,
       percentUsed,
+      emailSent,
     });
   }
 

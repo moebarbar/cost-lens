@@ -4,11 +4,15 @@ import { useState } from "react";
 import { useConnectors, addConnector, deleteConnector, syncConnector } from "@/hooks/use-api";
 
 const PROVIDER_OPTIONS = [
-  { value: "OPENAI",        label: "OpenAI",         icon: "🟢", color: "#00A67E", field: "apiKey",       placeholder: "sk-...",                  comingSoon: false },
-  { value: "ANTHROPIC",     label: "Anthropic",      icon: "🟠", color: "#D4A574", field: "apiKey",       placeholder: "sk-ant-...",              comingSoon: false },
-  { value: "AWS_BEDROCK",   label: "AWS Bedrock",    icon: "🟡", color: "#FF9900", field: "accessKeyId",  placeholder: "AKIA...",                 comingSoon: true },
-  { value: "AZURE_OPENAI",  label: "Azure OpenAI",   icon: "🔵", color: "#0078D4", field: "apiKey",       placeholder: "Azure API key...",        comingSoon: true },
-  { value: "GOOGLE_VERTEX", label: "Google Vertex",  icon: "🔷", color: "#4285F4", field: "serviceAccount", placeholder: "JSON service account...", comingSoon: true },
+  { value: "OPENAI",        label: "OpenAI",         icon: "🟢", color: "#00A67E", fields: [{ key: "apiKey", label: "Admin API Key", type: "password", placeholder: "sk-..." }] },
+  { value: "ANTHROPIC",     label: "Anthropic",      icon: "🟠", color: "#D4A574", fields: [{ key: "apiKey", label: "API Key", type: "password", placeholder: "sk-ant-..." }] },
+  { value: "AWS_BEDROCK",   label: "AWS Bedrock",    icon: "🟡", color: "#FF9900", fields: [
+    { key: "accessKeyId",     label: "Access Key ID",      type: "password", placeholder: "AKIA..." },
+    { key: "secretAccessKey", label: "Secret Access Key",   type: "password", placeholder: "Secret..." },
+    { key: "region",          label: "Region",              type: "text",     placeholder: "us-east-1" },
+  ]},
+  { value: "AZURE_OPENAI",  label: "Azure OpenAI",   icon: "🔵", color: "#0078D4", fields: [{ key: "apiKey", label: "API Key", type: "password", placeholder: "Azure API key..." }], comingSoon: true },
+  { value: "GOOGLE_VERTEX", label: "Google Vertex",  icon: "🔷", color: "#4285F4", fields: [{ key: "serviceAccount", label: "Service Account JSON", type: "textarea", placeholder: '{"type": "service_account", ...}' }], comingSoon: true },
 ];
 
 const STATUS_BADGE: Record<string, string> = {
@@ -22,18 +26,17 @@ export default function ConnectorsPage() {
   const { data: connectors, loading, error, refetch } = useConnectors();
   const [showModal, setShowModal] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(PROVIDER_OPTIONS[0]);
-  const [credValue, setCredValue] = useState("");
+  const [credValues, setCredValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState<string | null>(null);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!credValue.trim()) return;
     setSaving(true);
-    await addConnector(selectedProvider.value, { [selectedProvider.field]: credValue.trim() });
+    await addConnector(selectedProvider.value, credValues);
     setSaving(false);
     setShowModal(false);
-    setCredValue("");
+    setCredValues({});
     refetch();
   }
 
@@ -48,6 +51,12 @@ export default function ConnectorsPage() {
     if (!confirm("Remove this connector? This will not delete existing cost records.")) return;
     await deleteConnector(id);
     refetch();
+  }
+
+  function selectProvider(p: typeof PROVIDER_OPTIONS[0]) {
+    if (p.comingSoon) return;
+    setSelectedProvider(p);
+    setCredValues({});
   }
 
   return (
@@ -155,7 +164,7 @@ export default function ConnectorsPage() {
                     <button
                       key={p.value}
                       type="button"
-                      onClick={() => { if (!p.comingSoon) { setSelectedProvider(p); setCredValue(""); } }}
+                      onClick={() => selectProvider(p)}
                       disabled={p.comingSoon}
                       style={{
                         padding: "10px 4px",
@@ -195,24 +204,20 @@ export default function ConnectorsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="label">{selectedProvider.field === "serviceAccount" ? "Service Account JSON" : "API Key"}</label>
-                <input
-                  className={selectedProvider.field === "serviceAccount" ? undefined : "input"}
-                  style={selectedProvider.field === "serviceAccount" ? {
-                    width: "100%", padding: "10px 14px",
-                    background: "var(--bg-input)", border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-md)", color: "var(--text-primary)",
-                    fontFamily: "var(--font-mono)", fontSize: "12px", outline: "none",
-                    height: "80px", resize: "vertical",
-                  } as React.CSSProperties : undefined}
-                  type={selectedProvider.field === "serviceAccount" ? undefined : "password"}
-                  placeholder={selectedProvider.placeholder}
-                  value={credValue}
-                  onChange={e => setCredValue(e.target.value)}
-                  required
-                />
-              </div>
+              {/* Dynamic credential fields based on provider */}
+              {selectedProvider.fields.map(field => (
+                <div key={field.key}>
+                  <label className="label">{field.label}</label>
+                  <input
+                    className="input"
+                    type={field.type === "textarea" ? "text" : field.type}
+                    placeholder={field.placeholder}
+                    value={credValues[field.key] || ""}
+                    onChange={e => setCredValues(v => ({ ...v, [field.key]: e.target.value }))}
+                    required
+                  />
+                </div>
+              ))}
 
               <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
                 <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>

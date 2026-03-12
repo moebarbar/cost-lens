@@ -97,6 +97,26 @@ export const MISTRAL_PRICING: PricingEntry[] = [
 ];
 
 // ============================================================
+// AWS BEDROCK PRICING (on-demand)
+// ============================================================
+export const AWS_BEDROCK_PRICING: PricingEntry[] = [
+  // Anthropic on Bedrock
+  { provider: "AWS_BEDROCK", model: "anthropic-claude-3-sonnet", inputPer1kTokens: 0.003, outputPer1kTokens: 0.015, effectiveFrom: "2024-03-04" },
+  { provider: "AWS_BEDROCK", model: "anthropic-claude-3-haiku", inputPer1kTokens: 0.00025, outputPer1kTokens: 0.00125, effectiveFrom: "2024-03-07" },
+  { provider: "AWS_BEDROCK", model: "anthropic-claude-3-opus", inputPer1kTokens: 0.015, outputPer1kTokens: 0.075, effectiveFrom: "2024-02-29" },
+  { provider: "AWS_BEDROCK", model: "anthropic-claude-3-5-sonnet", inputPer1kTokens: 0.003, outputPer1kTokens: 0.015, effectiveFrom: "2024-10-22" },
+  // Meta Llama on Bedrock
+  { provider: "AWS_BEDROCK", model: "meta-llama3-70b-instruct", inputPer1kTokens: 0.00265, outputPer1kTokens: 0.0035, effectiveFrom: "2024-04-18" },
+  { provider: "AWS_BEDROCK", model: "meta-llama3-8b-instruct", inputPer1kTokens: 0.0003, outputPer1kTokens: 0.0006, effectiveFrom: "2024-04-18" },
+  // Amazon Titan
+  { provider: "AWS_BEDROCK", model: "amazon-titan-text-premier", inputPer1kTokens: 0.0005, outputPer1kTokens: 0.0015, effectiveFrom: "2024-06-01" },
+  { provider: "AWS_BEDROCK", model: "amazon-titan-text-express", inputPer1kTokens: 0.0002, outputPer1kTokens: 0.0006, effectiveFrom: "2024-01-01" },
+  { provider: "AWS_BEDROCK", model: "amazon-titan-text-lite", inputPer1kTokens: 0.00015, outputPer1kTokens: 0.0002, effectiveFrom: "2024-01-01" },
+  // Amazon Titan Embeddings
+  { provider: "AWS_BEDROCK", model: "amazon-titan-embed-text-v2", inputPer1kTokens: 0.00002, outputPer1kTokens: 0, effectiveFrom: "2024-04-01" },
+];
+
+// ============================================================
 // ALL PRICING COMBINED
 // ============================================================
 export const ALL_PRICING: PricingEntry[] = [
@@ -104,6 +124,7 @@ export const ALL_PRICING: PricingEntry[] = [
   ...ANTHROPIC_PRICING,
   ...GOOGLE_PRICING,
   ...MISTRAL_PRICING,
+  ...AWS_BEDROCK_PRICING,
 ];
 
 // ============================================================

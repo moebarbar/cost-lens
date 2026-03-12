@@ -9,6 +9,7 @@ import { requireAuth } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { encryptCredentials, decryptCredentials } from "@/lib/encryption";
 import { createConnector, isSupportedProvider } from "@/lib/connectors/registry";
+import { connectorCreateSchema, validateBody } from "@/lib/validation";
 import type { AIProvider } from "@/types";
 
 // GET /api/connectors
@@ -68,14 +69,12 @@ export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth();
     const body = await request.json();
-    const { provider, credentials } = body;
 
-    if (!provider || !credentials) {
-      return NextResponse.json(
-        { success: false, error: "Provider and credentials are required" },
-        { status: 400 }
-      );
-    }
+    // Zod validation
+    const validation = validateBody(connectorCreateSchema, body);
+    if (!validation.success) return validation.response;
+
+    const { provider, credentials } = validation.data;
 
     // Check if connector already exists for this provider
     const existing = await prisma.connector.findUnique({

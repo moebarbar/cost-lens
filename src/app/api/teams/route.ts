@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { teamCreateSchema, teamUpdateSchema, validateBody } from "@/lib/validation";
 
 // GET /api/teams — List all teams with their cost summaries
 export async function GET(request: NextRequest) {
@@ -72,14 +73,11 @@ export async function POST(request: NextRequest) {
     const user = await requireAuth();
     const body = await request.json();
 
-    const { name, color } = body;
+    // Zod validation
+    const validation = validateBody(teamCreateSchema, body);
+    if (!validation.success) return validation.response;
 
-    if (!name) {
-      return NextResponse.json(
-        { success: false, error: "Team name is required" },
-        { status: 400 }
-      );
-    }
+    const { name, color } = validation.data;
 
     const team = await prisma.team.create({
       data: {
@@ -122,14 +120,11 @@ export async function PUT(request: NextRequest) {
     const user = await requireAuth();
     const body = await request.json();
 
-    const { teamId, action, ...data } = body;
+    // Zod validation
+    const validation = validateBody(teamUpdateSchema, body);
+    if (!validation.success) return validation.response;
 
-    if (!teamId) {
-      return NextResponse.json(
-        { success: false, error: "Team ID is required" },
-        { status: 400 }
-      );
-    }
+    const { teamId, action, ...data } = validation.data;
 
     // Verify team belongs to this org
     const existingTeam = await prisma.team.findFirst({

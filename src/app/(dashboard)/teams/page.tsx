@@ -1,13 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { useTeams, createTeam } from "@/hooks/use-api";
+import { useTeams, createTeam, mapApiKeyToTeam } from "@/hooks/use-api";
 
 export default function TeamsPage() {
   const { data: teams, loading, error, refetch } = useTeams();
   const [showModal, setShowModal] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // API Key Mapping state
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [keyTeamId, setKeyTeamId] = useState("");
+  const [keyTeamName, setKeyTeamName] = useState("");
+  const [keyPrefix, setKeyPrefix] = useState("");
+  const [keyAlias, setKeyAlias] = useState("");
+  const [keyProvider, setKeyProvider] = useState("OPENAI");
+  const [mappingKey, setMappingKey] = useState(false);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -17,6 +26,25 @@ export default function TeamsPage() {
     setNewTeamName("");
     setCreating(false);
     setShowModal(false);
+    refetch();
+  }
+
+  function openKeyModal(teamId: string, teamName: string) {
+    setKeyTeamId(teamId);
+    setKeyTeamName(teamName);
+    setKeyPrefix("");
+    setKeyAlias("");
+    setKeyProvider("OPENAI");
+    setShowKeyModal(true);
+  }
+
+  async function handleMapKey(e: React.FormEvent) {
+    e.preventDefault();
+    if (!keyPrefix.trim()) return;
+    setMappingKey(true);
+    await mapApiKeyToTeam(keyTeamId, keyPrefix.trim(), keyProvider, keyAlias.trim() || undefined);
+    setMappingKey(false);
+    setShowKeyModal(false);
     refetch();
   }
 
@@ -62,7 +90,7 @@ export default function TeamsPage() {
                 }}>
                   {team.name.charAt(0).toUpperCase()}
                 </div>
-                <div>
+                <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: "15px" }}>{team.name}</div>
                   <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>{team.memberCount} member{team.memberCount !== 1 ? "s" : ""}</div>
                 </div>
@@ -81,8 +109,29 @@ export default function TeamsPage() {
                 </div>
               </div>
 
+              {/* Mapped API keys */}
+              {(team.apiKeys?.length ?? 0) > 0 && (
+                <div style={{ marginBottom: "12px" }}>
+                  <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Mapped keys</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    {team.apiKeys.map(k => (
+                      <div key={k.id} style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "6px 8px", background: "var(--bg-input)", borderRadius: "var(--radius-sm)",
+                        fontSize: "12px",
+                      }}>
+                        <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
+                          {k.keyAlias || k.keyPrefix}
+                        </span>
+                        <span className="badge badge-muted" style={{ fontSize: "10px" }}>{k.provider}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {(team.topModels?.length ?? 0) > 0 && (
-                <div>
+                <div style={{ marginBottom: "12px" }}>
                   <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Top models</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
                     {team.topModels!.slice(0, 3).map(m => (
@@ -91,6 +140,14 @@ export default function TeamsPage() {
                   </div>
                 </div>
               )}
+
+              <button
+                className="btn btn-secondary btn-sm"
+                style={{ width: "100%", marginTop: "4px" }}
+                onClick={() => openKeyModal(team.id, team.name)}
+              >
+                🔑 Map API Key
+              </button>
             </div>
           ))}
 
@@ -126,6 +183,65 @@ export default function TeamsPage() {
                 <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={creating}>
                   {creating ? <span className="spinner" /> : "Create Team"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Map API Key Modal */}
+      {showKeyModal && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowKeyModal(false)}>
+          <div className="modal animate-in">
+            <h2 style={{ fontSize: "18px", fontWeight: 700, marginBottom: "8px" }}>
+              Map API Key to {keyTeamName}
+            </h2>
+            <p style={{ fontSize: "14px", color: "var(--text-muted)", marginBottom: "24px" }}>
+              Enter the first 8 characters of your API key. Cost records matching this prefix will be attributed to this team.
+            </p>
+            <form onSubmit={handleMapKey} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div>
+                <label className="label">Provider</label>
+                <select
+                  className="input"
+                  value={keyProvider}
+                  onChange={e => setKeyProvider(e.target.value)}
+                >
+                  <option value="OPENAI">OpenAI</option>
+                  <option value="ANTHROPIC">Anthropic</option>
+                  <option value="AWS_BEDROCK">AWS Bedrock</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">API Key Prefix (first 8 chars)</label>
+                <input
+                  className="input"
+                  placeholder="sk-abcd1234"
+                  value={keyPrefix}
+                  onChange={e => setKeyPrefix(e.target.value)}
+                  maxLength={8}
+                  required
+                  autoFocus
+                  style={{ fontFamily: "var(--font-mono)" }}
+                />
+                <div style={{ fontSize: "11px", color: "var(--text-subtle)", marginTop: "4px" }}>
+                  Only the prefix is stored — your full key is never exposed
+                </div>
+              </div>
+              <div>
+                <label className="label">Alias (optional)</label>
+                <input
+                  className="input"
+                  placeholder="e.g. Production key, Dev key..."
+                  value={keyAlias}
+                  onChange={e => setKeyAlias(e.target.value)}
+                />
+              </div>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                <button type="button" className="btn btn-ghost" onClick={() => setShowKeyModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={mappingKey}>
+                  {mappingKey ? <span className="spinner" /> : "Map Key"}
                 </button>
               </div>
             </form>

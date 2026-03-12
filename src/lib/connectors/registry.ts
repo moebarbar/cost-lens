@@ -5,6 +5,7 @@
 import { BaseConnector, ConnectorCredentials } from "./base";
 import { OpenAIConnector } from "./openai";
 import { AnthropicConnector } from "./anthropic";
+import { AWSBedrockConnector } from "./aws-bedrock";
 import { AIProvider, ConnectorConfig } from "@/types";
 
 // ============================================================
@@ -21,9 +22,9 @@ export function createConnector(
       return new OpenAIConnector(credentials, orgId);
     case "ANTHROPIC":
       return new AnthropicConnector(credentials, orgId);
+    case "AWS_BEDROCK":
+      return new AWSBedrockConnector(credentials, orgId);
     // Future connectors:
-    // case "AWS_BEDROCK":
-    //   return new AWSBedrockConnector(credentials, orgId);
     // case "AZURE_OPENAI":
     //   return new AzureOpenAIConnector(credentials, orgId);
     // case "GOOGLE_VERTEX":
@@ -188,6 +189,6 @@ export function getAvailableConnectors(): ConnectorConfig[] {
  * Check which providers are currently supported with full connectors
  */
 export function isSupportedProvider(provider: AIProvider): boolean {
-  const supported: AIProvider[] = ["OPENAI", "ANTHROPIC"];
+  const supported: AIProvider[] = ["OPENAI", "ANTHROPIC", "AWS_BEDROCK"];
   return supported.includes(provider);
 }
