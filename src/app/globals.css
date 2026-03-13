@@ -184,6 +184,42 @@ h1, h2, h3, h4, h5, h6 {
 .delay-100 { animation-delay: 100ms; opacity: 0; }
 .delay-200 { animation-delay: 200ms; opacity: 0; }
 .delay-300 { animation-delay: 300ms; opacity: 0; }
+.delay-400 { animation-delay: 400ms; opacity: 0; }
+.delay-500 { animation-delay: 500ms; opacity: 0; }
+.delay-600 { animation-delay: 600ms; opacity: 0; }
+.delay-700 { animation-delay: 700ms; opacity: 0; }
+.delay-800 { animation-delay: 800ms; opacity: 0; }
+
+/* Scan & shimmer keyframes */
+@keyframes scanHorizontal {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+/* fade-out-top — gradient mask for sparkline/chart overlays */
+.fade-out-top {
+  -webkit-mask-image: linear-gradient(to top, white 50%, transparent 100%);
+  mask-image: linear-gradient(to top, white 50%, transparent 100%);
+}
+
+/* btn-ghost variant (missing from original) */
+.btn-ghost {
+  background: transparent;
+  color: var(--text-mid);
+  border-color: transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  color: var(--text-bright);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* badge-info (missing — used for low-severity alerts) */
+.badge-info { background: rgba(0,240,255,0.08); color: var(--accent-cyan); border-color: rgba(0,240,255,0.2); }
 
 /* Pulsing behaviors */
 @keyframes pulseGlowRed {

@@ -1,11 +1,12 @@
 "use client";
 
 import { useDashboard } from "@/hooks/use-api";
+import { useDashboardPeriod } from "../dashboard-context";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Zap, AlertTriangle, ArrowUpRight, ArrowDownRight, ShieldAlert, Cpu, DollarSign } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ScanLine } from "@/components/ui/ScanLine";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 // ============================================================================
 // Animated Ticker for Metric Cards
@@ -143,7 +144,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 // Main Page End Component
 // ============================================================================
 export default function CommandPage() {
-  const { data, loading, error } = useDashboard("30d", "day");
+  const { period } = useDashboardPeriod();
+  const { data, loading, error } = useDashboard(period, "day");
 
   if (loading) return <CommandSkeleton />;
   if (error) return (
@@ -172,22 +174,22 @@ export default function CommandPage() {
       
       {/* Metric Cards Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard 
-          title="Total AI Spend" 
-          value={overview?.totalSpend ?? 0} 
-          trend={12.4} 
-          isCurrency 
-          icon={DollarSign} 
-          glow="cyan" 
-          delay={1} 
+        <MetricCard
+          title="Total AI Spend"
+          value={overview?.totalSpend ?? 0}
+          trend={overview?.spendChange ?? undefined}
+          isCurrency
+          icon={DollarSign}
+          glow="cyan"
+          delay={1}
         />
-        <MetricCard 
-          title="Active Channels" 
-          value={overview?.activeTools ?? 0} 
-          trend={-3.1} 
-          icon={Cpu} 
-          glow="green" 
-          delay={2} 
+        <MetricCard
+          title="Active Channels"
+          value={overview?.activeTools ?? 0}
+          trend={overview?.newToolsThisPeriod != null ? overview.newToolsThisPeriod : undefined}
+          icon={Cpu}
+          glow="green"
+          delay={2}
         />
         <MetricCard 
           title="Detected Waste" 
@@ -213,7 +215,7 @@ export default function CommandPage() {
             <h2 className="font-heading font-bold text-lg text-white tracking-widest uppercase">Spend Topology</h2>
             <div className="h-px w-32 bg-gradient-to-r from-[#00F0FF]/50 to-transparent" />
           </div>
-          <div className="text-xs font-mono text-[#94A3B8] border border-white/10 px-2 py-1 rounded bg-black/20">30-DAY SCAN</div>
+          <div className="text-xs font-mono text-[#94A3B8] border border-white/10 px-2 py-1 rounded bg-black/20">{period.toUpperCase()} SCAN</div>
         </div>
 
         {timeSeries.length === 0 ? (

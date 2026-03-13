@@ -309,7 +309,7 @@ export default function AlertsPage() {
 
                 <div className="flex gap-3 justify-end pt-6 border-t border-white/10">
                   <button type="button" className="btn btn-ghost hover:text-[#FF3366]" onClick={() => setShowModal(false)}>Abort</button>
-                  <GlowButton onClick={undefined as any} type="submit" variant="primary" className="py-2.5 px-6">
+                  <GlowButton type="submit" variant="primary" className="py-2.5 px-6">
                     {saving ? <span className="spinner" /> : "Deploy Sentinel"}
                   </GlowButton>
                 </div>

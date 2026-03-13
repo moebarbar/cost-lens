@@ -16,20 +16,26 @@ export function GlassCard({ children, className = "", glowColor, animateIn = fal
   if (glowColor === "amber") glowClass = "hover:shadow-[0_0_20px_rgba(255,184,0,0.15)] hover:border-[#FFB800]/30";
   if (glowColor === "red") glowClass = "hover:shadow-[0_0_20px_rgba(255,51,102,0.15)] hover:border-[#FF3366]/30";
 
-  const delayClass = delayIndex > 0 ? `delay-${delayIndex * 100}` : "";
-  const animClass = animateIn ? `animate-in ${delayClass}` : "";
+  const animClass = animateIn ? "animate-in" : "";
+  // Inline style handles any delay index (CSS .delay-N classes only cover up to 300ms)
+  const animStyle = animateIn && delayIndex > 0
+    ? { animationDelay: `${delayIndex * 100}ms`, opacity: 0 }
+    : undefined;
 
   return (
-    <div className={`
-      relative overflow-hidden
-      bg-[#111827]/60 backdrop-blur-md 
-      border border-white/5 
-      rounded-xl 
-      transition-all duration-300 ease-out hover:-translate-y-1
-      ${glowClass}
-      ${animClass}
-      ${className}
-    `}>
+    <div
+      style={animStyle}
+      className={`
+        relative overflow-hidden
+        bg-[#111827]/60 backdrop-blur-md
+        border border-white/5
+        rounded-xl
+        transition-all duration-300 ease-out hover:-translate-y-1
+        ${glowClass}
+        ${animClass}
+        ${className}
+      `}
+    >
       {/* Subtle top glare effect */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
       {/* Subtle corner bracket styling */}
@@ -40,3 +46,4 @@ export function GlassCard({ children, className = "", glowColor, animateIn = fal
     </div>
   );
 }
+

@@ -294,7 +294,7 @@ export default function ConnectorsPage() {
 
               <div className="flex gap-3 justify-end pt-2">
                 <button type="button" className="btn btn-ghost hover:text-[#FF3366]" onClick={() => setShowModal(false)}>Abort Sequence</button>
-                <GlowButton onClick={undefined as any} type="submit" variant="primary" className="py-2.5 px-8">
+                <GlowButton type="submit" variant="primary" className="py-2.5 px-8">
                   {saving ? <span className="spinner" /> : "Verify & Link"}
                 </GlowButton>
               </div>

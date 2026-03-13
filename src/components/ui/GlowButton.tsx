@@ -5,12 +5,14 @@ interface GlowButtonProps {
   children: ReactNode;
   href?: string;
   onClick?: () => void;
+  type?: "button" | "submit" | "reset";
   className?: string;
   variant?: "primary" | "outline" | "ghost";
   icon?: ReactNode;
+  disabled?: boolean;
 }
 
-export function GlowButton({ children, href, onClick, className = "", variant = "primary", icon }: GlowButtonProps) {
+export function GlowButton({ children, href, onClick, type = "button", className = "", variant = "primary", icon, disabled }: GlowButtonProps) {
   const baseClasses = "relative inline-flex items-center justify-center gap-2 px-6 py-3 font-heading font-semibold rounded-lg transition-all duration-300 overflow-hidden group";
   
   let variantClasses = "";
@@ -50,7 +52,7 @@ export function GlowButton({ children, href, onClick, className = "", variant = 
   }
 
   return (
-    <button onClick={onClick} className={`${baseClasses} ${variantClasses} ${className}`}>
+    <button type={type} onClick={onClick} disabled={disabled} className={`${baseClasses} ${variantClasses} ${className} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0`}>
       {content}
     </button>
   );

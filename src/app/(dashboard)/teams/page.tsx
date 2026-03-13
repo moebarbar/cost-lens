@@ -251,7 +251,7 @@ export default function TeamsPage() {
 
               <div className="flex gap-3 justify-end pt-4 border-t border-white/5">
                 <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>Abort</button>
-                <GlowButton onClick={undefined as any} type="submit" variant="primary" className="py-2 px-6">
+                <GlowButton type="submit" variant="primary" className="py-2 px-6">
                   {creating ? <span className="spinner" /> : "Initialize"}
                 </GlowButton>
               </div>
@@ -318,7 +318,7 @@ export default function TeamsPage() {
 
               <div className="flex gap-3 justify-end pt-4 border-t border-white/5">
                 <button type="button" className="btn btn-ghost" onClick={() => setShowKeyModal(false)}>Abort</button>
-                <GlowButton onClick={undefined as any} type="submit" variant="primary" className="py-2 px-6">
+                <GlowButton type="submit" variant="primary" className="py-2 px-6">
                   {mappingKey ? <span className="spinner" /> : "Attach Link"}
                 </GlowButton>
               </div>
