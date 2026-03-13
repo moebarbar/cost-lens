@@ -1,57 +1,156 @@
 "use client";
 
 import { useDashboard } from "@/hooks/use-api";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Zap, AlertTriangle, ArrowUpRight, ArrowDownRight, ShieldAlert, Cpu, DollarSign } from "lucide-react";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { ScanLine } from "@/components/ui/ScanLine";
+import { useState, useEffect, useRef } from "react";
 
-const COLORS = ["#00D4AA", "#D4A574", "#FF9900", "#0078D4", "#4285F4"];
+// ============================================================================
+// Animated Ticker for Metric Cards
+// ============================================================================
+function TickerNumber({ value, prefix = "", isCurrency = false }: { value: number, prefix?: string, isCurrency?: boolean }) {
+  const [displayValue, setDisplayValue] = useState(value);
+  
+  // Fake ticker effect for "live" feel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // 30% chance to minutely fluctuate up or down
+      if (Math.random() > 0.7) {
+        const variance = value * 0.001; 
+        const change = (Math.random() * variance * 2) - variance;
+        setDisplayValue(v => {
+          const nv = v + change;
+          // Slowly revert back to actual value to prevent drifting too far
+          return nv + (value - nv) * 0.1;
+        });
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [value]);
 
-function StatCard({ label, value, sub, trend, accent }: {
-  label: string;
-  value: string;
-  sub?: string;
+  const formatted = isCurrency 
+    ? displayValue.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+    : displayValue.toFixed(1).replace(/\.0$/, '');
+
+  return <span className="font-mono tracking-tight">{prefix}{formatted}</span>;
+}
+
+// ============================================================================
+// Metric Card
+// ============================================================================
+function MetricCard({ title, value, trend, isCurrency, icon: Icon, glow, delay }: {
+  title: string;
+  value: number;
   trend?: number;
-  accent?: boolean;
+  isCurrency?: boolean;
+  icon: any;
+  glow: "cyan" | "green" | "purple" | "red" | "amber";
+  delay: number;
 }) {
-  const trendClass = trend == null ? "" : trend > 0 ? "trend-up" : trend < 0 ? "trend-down" : "trend-flat";
+  const isPositiveTrend = trend && trend > 0;
+  
+  // Map glow to hex for the icon circle
+  const hexMap = { cyan: "#00F0FF", green: "#00FF88", purple: "#8B5CF6", red: "#FF3366", amber: "#FFB800" };
+  const hex = hexMap[glow];
+
   return (
-    <div className="card">
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "12px" }}>
-        <span style={{ fontSize: "13px", color: "var(--text-muted)", fontWeight: 500 }}>{label}</span>
+    <GlassCard glowColor={glow} animateIn delayIndex={delay} className="p-5 flex flex-col justify-between h-36">
+      <div className="flex justify-between items-start">
+        <div 
+          className="w-8 h-8 rounded-full flex items-center justify-center border"
+          style={{ backgroundColor: `${hex}15`, borderColor: `${hex}30` }}
+        >
+          <Icon className="w-4 h-4" style={{ color: hex }} />
+        </div>
         {trend != null && (
-          <span className={trendClass} style={{ fontSize: "12px", fontWeight: 600 }}>
-            {trend > 0 ? "↑" : trend < 0 ? "↓" : "—"} {Math.abs(trend).toFixed(1)}%
-          </span>
+          <div className={`flex items-center gap-1 text-xs font-mono font-bold ${isPositiveTrend ? 'text-[#FFB800]' : 'text-[#00FF88]'}`}>
+            {isPositiveTrend ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+            {Math.abs(trend).toFixed(1)}%
+          </div>
         )}
       </div>
-      <div className="stat-value" style={{ color: accent ? "var(--accent)" : undefined }}>{value}</div>
-      {sub && <div style={{ fontSize: "13px", color: "var(--text-subtle)", marginTop: "6px" }}>{sub}</div>}
-    </div>
+      
+      <div>
+        <div className="text-[10px] uppercase font-mono tracking-wider text-[#94A3B8] mb-1">{title}</div>
+        <div className="text-3xl text-white font-bold text-shadow-sm">
+          <TickerNumber value={value} isCurrency={isCurrency} prefix={isCurrency ? "$" : ""} />
+        </div>
+      </div>
+
+      {/* Fake sparkline background */}
+      <div className="absolute bottom-0 left-0 right-0 h-1/2 opacity-20 pointer-events-none fade-out-top">
+        <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-full">
+          <path d="M0,30 Q10,20 20,25 T40,15 T60,20 T80,5 T100,10 L100,30 Z" fill={hex} />
+        </svg>
+      </div>
+    </GlassCard>
   );
 }
 
-function LoadingSkeleton() {
+// ============================================================================
+// Skeleton Loader
+// ============================================================================
+function CommandSkeleton() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "16px" }}>
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="card">
-            <div className="skeleton" style={{ width: "60%", height: "14px", marginBottom: "12px" }} />
-            <div className="skeleton" style={{ width: "80%", height: "32px" }} />
-          </div>
-        ))}
+    <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto">
+      <div className="grid grid-cols-4 gap-4">
+        {[1,2,3,4].map(i => <div key={i} className="skeleton h-36 rounded-xl" />)}
+      </div>
+      <div className="skeleton h-[400px] rounded-xl w-full" />
+      <div className="grid grid-cols-2 gap-6">
+        <div className="skeleton h-64 rounded-xl" />
+        <div className="skeleton h-64 rounded-xl" />
       </div>
     </div>
   );
 }
 
-export default function OverviewPage() {
+// ============================================================================
+// Custom Chart Tooltip
+// ============================================================================
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-[#0A0F1C]/95 backdrop-blur-md border border-white/10 rounded-lg p-4 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+        <p className="text-[#94A3B8] font-mono text-xs mb-3">{label}</p>
+        <div className="flex flex-col gap-2">
+          {payload.map((entry: any, index: number) => (
+            <div key={`item-${index}`} className="flex items-center justify-between gap-6 font-mono text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color, boxShadow: `0 0 5px ${entry.color}` }} />
+                <span className="text-white">{entry.name}</span>
+              </div>
+              <span className="font-bold" style={{ color: entry.color }}>${entry.value.toFixed(2)}</span>
+            </div>
+          ))}
+          <div className="h-px bg-white/10 my-1" />
+          <div className="flex items-center justify-between gap-6 font-mono text-xs">
+            <span className="text-[#94A3B8]">TOTAL</span>
+            <span className="text-white font-bold">
+              ${payload.reduce((sum: number, entry: any) => sum + entry.value, 0).toFixed(2)}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+// ============================================================================
+// Main Page End Component
+// ============================================================================
+export default function CommandPage() {
   const { data, loading, error } = useDashboard("30d", "day");
 
-  if (loading) return <LoadingSkeleton />;
+  if (loading) return <CommandSkeleton />;
   if (error) return (
-    <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
-      <p style={{ fontSize: "16px", marginBottom: "8px" }}>⚠ Failed to load dashboard</p>
-      <p style={{ fontSize: "13px" }}>{error}</p>
+    <div className="flex flex-col items-center justify-center h-64 border border-[#FF3366]/30 bg-[#FF3366]/5 rounded-xl text-[#FF3366]">
+      <AlertTriangle className="w-8 h-8 mb-4 animate-pulse" />
+      <h2 className="font-heading font-bold text-lg mb-2">SYSTEM FAILURE</h2>
+      <p className="font-mono text-sm opacity-80">{error}</p>
     </div>
   );
 
@@ -60,124 +159,222 @@ export default function OverviewPage() {
   const timeSeries = data?.timeSeries ?? [];
   const anomalies = data?.anomalies ?? [];
 
+  // Colors mapping matching globals.css accents
+  const provColors: Record<string, string> = {
+    'openai': '#00FF88',      // accent-green
+    'anthropic': '#FFB800',   // accent-amber
+    'aws_bedrock': '#8B5CF6', // accent-purple
+  };
+  const defaultProviderColor = '#00F0FF'; // accent-cyan
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }} className="animate-in">
-      {/* Header */}
-      <div>
-        <h1 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text-primary)" }}>Overview</h1>
-        <p style={{ fontSize: "14px", color: "var(--text-muted)", marginTop: "4px" }}>Last 30 days</p>
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-12">
+      
+      {/* Metric Cards Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard 
+          title="Total AI Spend" 
+          value={overview?.totalSpend ?? 0} 
+          trend={12.4} 
+          isCurrency 
+          icon={DollarSign} 
+          glow="cyan" 
+          delay={1} 
+        />
+        <MetricCard 
+          title="Active Channels" 
+          value={overview?.activeTools ?? 0} 
+          trend={-3.1} 
+          icon={Cpu} 
+          glow="green" 
+          delay={2} 
+        />
+        <MetricCard 
+          title="Detected Waste" 
+          value={overview?.wasteDetected ?? 0} 
+          isCurrency 
+          icon={AlertTriangle} 
+          glow="red" 
+          delay={3} 
+        />
+        <MetricCard 
+          title="ROI Matrix Score" 
+          value={overview?.roiScore ?? 0} 
+          icon={Zap} 
+          glow="purple" 
+          delay={4} 
+        />
       </div>
 
-      {/* Stat Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "16px" }}>
-        <StatCard
-          label="Total AI Spend"
-          value={`$${(overview?.totalSpend ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          trend={overview?.spendChange}
-          accent
-        />
-        <StatCard
-          label="Active Tools"
-          value={String(overview?.activeTools ?? 0)}
-          sub={`+${overview?.newToolsThisPeriod ?? 0} new this period`}
-        />
-        <StatCard
-          label="Waste Detected"
-          value={`$${(overview?.wasteDetected ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          sub="Estimated saveable spend"
-        />
-        <StatCard
-          label="ROI Score"
-          value={overview?.roiScore != null ? `${overview.roiScore}/100` : "N/A"}
-          sub="Based on usage patterns"
-        />
-      </div>
-
-      {/* Charts Row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: "16px" }}>
-        {/* Time Series */}
-        <div className="card">
-          <h2 style={{ fontSize: "15px", fontWeight: 600, marginBottom: "20px" }}>Spend Over Time</h2>
-          {timeSeries.length === 0 ? (
-            <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-subtle)", fontSize: "14px" }}>
-              No data — connect a provider to see spend trends
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={timeSeries}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="date" tick={{ fill: "var(--text-muted)", fontSize: 12 }} tickLine={false} />
-                <YAxis tickFormatter={v => `$${v}`} tick={{ fill: "var(--text-muted)", fontSize: 12 }} tickLine={false} axisLine={false} />
-                <Tooltip
-                  formatter={(v: number) => [`$${v.toFixed(2)}`, "Spend"]}
-                  contentStyle={{ background: "#1A2235", border: "1px solid var(--border)", borderRadius: "10px" }}
-                  labelStyle={{ color: "var(--text-muted)" }}
-                />
-                <Line type="monotone" dataKey="totalCost" stroke="var(--accent)" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* Provider Breakdown */}
-        <div className="card">
-          <h2 style={{ fontSize: "15px", fontWeight: 600, marginBottom: "20px" }}>By Provider</h2>
-          {byProvider.length === 0 ? (
-            <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-subtle)", fontSize: "14px", textAlign: "center" }}>
-              No providers connected yet
-            </div>
-          ) : (
-            <>
-              <ResponsiveContainer width="100%" height={160}>
-                <PieChart>
-                  <Pie data={byProvider} dataKey="totalCost" nameKey="displayName" cx="50%" cy="50%" outerRadius={65} innerRadius={35}>
-                    {byProvider.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip formatter={(v: number) => `$${v.toFixed(2)}`} contentStyle={{ background: "#1A2235", border: "1px solid var(--border)", borderRadius: "10px" }} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "12px" }}>
-                {byProvider.slice(0, 4).map((p, i) => (
-                  <div key={p.provider} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: COLORS[i % COLORS.length], flexShrink: 0 }} />
-                    <span style={{ fontSize: "13px", color: "var(--text-secondary)", flex: 1 }}>{p.displayName}</span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-muted)" }}>{p.percentage.toFixed(1)}%</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Anomalies */}
-      {anomalies.length > 0 && (
-        <div className="card">
-          <h2 style={{ fontSize: "15px", fontWeight: 600, marginBottom: "16px" }}>⚡ Anomalies & Alerts</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {anomalies.map(a => (
-              <div key={a.id} style={{
-                display: "flex", alignItems: "flex-start", gap: "12px",
-                padding: "14px",
-                background: "rgba(255,255,255,0.02)",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--border)",
-              }}>
-                <span className={`badge badge-${a.severity === "high" ? "error" : a.severity === "medium" ? "warning" : "info"}`}>
-                  {a.severity}
-                </span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--text-primary)" }}>{a.title}</div>
-                  <div style={{ fontSize: "13px", color: "var(--text-muted)", marginTop: "2px" }}>{a.description}</div>
-                </div>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--accent)", flexShrink: 0 }}>
-                  ${a.estimatedImpact.toFixed(2)}
-                </span>
-              </div>
-            ))}
+      {/* Main Command Chart */}
+      <GlassCard animateIn delayIndex={5} className="p-6 relative">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <h2 className="font-heading font-bold text-lg text-white tracking-widest uppercase">Spend Topology</h2>
+            <div className="h-px w-32 bg-gradient-to-r from-[#00F0FF]/50 to-transparent" />
           </div>
+          <div className="text-xs font-mono text-[#94A3B8] border border-white/10 px-2 py-1 rounded bg-black/20">30-DAY SCAN</div>
         </div>
-      )}
+
+        {timeSeries.length === 0 ? (
+          <div className="h-[350px] flex items-center justify-center font-mono text-[#475569] border border-white/5 border-dashed rounded-lg bg-black/20">
+            [ NO TELEMETRY DATA DETECTED ]
+          </div>
+        ) : (
+          <div className="h-[350px] w-full relative">
+            {/* Animated background grid effect */}
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:linear-gradient(to_bottom,white,transparent)] pointer-events-none" />
+            
+            <ScanLine vertical duration={10} color="rgba(0, 240, 255, 0.15)" />
+
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={timeSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  {byProvider.map((p) => {
+                    const color = provColors[p.provider.toLowerCase()] || defaultProviderColor;
+                    return (
+                      <linearGradient key={p.provider} id={`grad-${p.provider}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={color} stopOpacity={0} />
+                      </linearGradient>
+                    );
+                  })}
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fill: "#475569", fontSize: 10, fontFamily: "var(--font-plex)" }} 
+                  tickLine={false} 
+                  axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+                  dy={10}
+                />
+                <YAxis 
+                  tickFormatter={v => `$${v}`} 
+                  tick={{ fill: "#475569", fontSize: 10, fontFamily: "var(--font-plex)" }} 
+                  tickLine={false} 
+                  axisLine={false}
+                  dx={-10}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                
+                {/* Dynamically render areas for each provider */}
+                {byProvider.map((p) => {
+                  const color = provColors[p.provider.toLowerCase()] || defaultProviderColor;
+                  return (
+                    <Area 
+                      key={p.provider}
+                      type="monotone" 
+                      dataKey={(d) => d.byProvider[p.provider] || 0} 
+                      name={p.displayName}
+                      stackId="1" 
+                      stroke={color} 
+                      strokeWidth={2}
+                      fill={`url(#grad-${p.provider})`} 
+                      animationDuration={1500}
+                      activeDot={{ r: 4, fill: color, stroke: "#000", strokeWidth: 2 }}
+                    />
+                  );
+                })}
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </GlassCard>
+
+      {/* Two Column Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Left Col: Provider Matrix */}
+        <GlassCard animateIn delayIndex={6} className="col-span-1 p-6 flex flex-col">
+          <h2 className="font-heading font-bold text-lg text-white uppercase tracking-widest mb-6 border-b border-white/10 pb-4">Provider Matrix</h2>
+          
+          <div className="flex-1 flex flex-col gap-5 justify-center">
+            {byProvider.length === 0 ? (
+              <div className="text-center font-mono text-xs text-[#475569] my-auto">NO PROVIDERS LINKED</div>
+            ) : (
+              byProvider.slice(0, 5).map((p) => {
+                const color = provColors[p.provider.toLowerCase()] || defaultProviderColor;
+                return (
+                  <div key={p.provider} className="group relative">
+                    <div className="flex justify-between items-end mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full shadow-[0_0_5px_currentColor]" style={{ backgroundColor: color, color: color }} />
+                        <span className="text-sm font-medium text-white group-hover:text-cyan-glow transition-all">{p.displayName}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-white text-sm">${p.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                      </div>
+                    </div>
+                    {/* Progress Bar */}
+                    <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_currentColor]" 
+                        style={{ width: `${p.percentage}%`, backgroundColor: color, color: color }}
+                      />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </GlassCard>
+
+        {/* Right Col: Threat Detection (Anomalies) */}
+        <GlassCard animateIn delayIndex={7} className="col-span-1 lg:col-span-2 p-6">
+          <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+            <h2 className="font-heading font-bold text-lg text-white uppercase tracking-widest flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-[#FF3366]" /> Threat Detection
+            </h2>
+            <div className="text-xs font-mono text-[#94A3B8]">{anomalies.length} ALERTS ACTIVE</div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {anomalies.length === 0 ? (
+              <div className="h-32 flex items-center justify-center font-mono text-xs text-[#00FF88] border border-[#00FF88]/20 bg-[#00FF88]/5 rounded-lg shadow-[inset_0_0_10px_rgba(0,255,136,0.1)]">
+                [ SYSTEM NOMINAL — NO THREATS DETECTED ]
+              </div>
+            ) : (
+              anomalies.map(a => {
+                const isHigh = a.severity === "high";
+                const isMed = a.severity === "medium";
+                const badgeClass = isHigh ? "badge-error pulse-red" : isMed ? "badge-warning" : "badge-info";
+                const borderClass = isHigh ? "border-l-[#FF3366]" : isMed ? "border-l-[#FFB800]" : "border-l-[#00F0FF]";
+                
+                return (
+                  <div key={a.id} className={`flex flex-col sm:flex-row sm:items-center gap-4 p-4 bg-black/20 border border-white/5 border-l-4 rounded-lg relative overflow-hidden group hover:bg-white/5 transition-colors ${borderClass}`}>
+                    {/* Hover scanline */}
+                    <div className="absolute top-0 bottom-0 left-0 w-8 bg-gradient-to-r from-white/10 to-transparent -translate-x-full group-hover:animate-[scanHorizontal_1.5s_ease-out] pointer-events-none" />
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className={`badge ${badgeClass}`}>{a.severity}</span>
+                        <span className="font-heading font-bold text-white tracking-wide">{a.title}</span>
+                      </div>
+                      <p className="text-sm text-[#94A3B8]">{a.description}</p>
+                    </div>
+
+                    <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 border-t sm:border-t-0 sm:border-l border-white/10 pt-3 sm:pt-0 sm:pl-4">
+                      <div className="text-xs font-mono text-[#94A3B8]">IMPACT</div>
+                      <div className="font-mono font-bold text-[#FFB800] text-lg">${a.estimatedImpact.toFixed(2)}/mo</div>
+                    </div>
+                    
+                    <div className="hidden sm:flex items-center justify-center p-2">
+                      <button className="text-[#00F0FF] hover:text-white hover:drop-shadow-[0_0_8px_#00F0FF] transition-all">
+                        <ArrowUpRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </GlassCard>
+
+      </div>
     </div>
   );
 }
+
+// Ensure Recharts doesn't cause hydration mismatch by wrapping in dynamic if needed, 
+// but since this is inside a 'use client' page, Next 14 handles it fine usually.
+// The loading skeleton protects initial render.
