@@ -179,14 +179,15 @@ export default function LandingPage() {
     let isDeleting = false;
     let text = "";
     let speed = 150;
+    let timer: NodeJS.Timeout;
 
     const type = () => {
       if (isDeleting) {
         text = currentWord.substring(0, text.length - 1);
-        speed = 50;
+        speed = 30; // Faster delete
       } else {
         text = currentWord.substring(0, text.length + 1);
-        speed = 150;
+        speed = 100; // Smoother typing
       }
 
       setTypingText(text);
@@ -195,15 +196,16 @@ export default function LandingPage() {
         speed = 2000; // Pause at end
         isDeleting = true;
       } else if (isDeleting && text === "") {
-        isDeleting = false;
+        // Switch to next word
         setTypingIndex((prev) => (prev + 1) % words.length);
+        return; // Exit here. The next effect cycle will spawn the typing loop
       }
 
-      setTimeout(type, speed);
+      timer = setTimeout(type, speed);
     };
 
-    const timeoutId = setTimeout(type, speed);
-    return () => clearTimeout(timeoutId);
+    timer = setTimeout(type, speed);
+    return () => clearTimeout(timer);
   }, [typingIndex]);
 
   return (
