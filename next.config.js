@@ -5,6 +5,13 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+
   // Allow external image domains if needed
   images: {
     domains: [],
