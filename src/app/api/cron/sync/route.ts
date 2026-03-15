@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/api/cron/sync/route.ts
 // CostLens AI — Automated Sync Cron Job
 // Runs every 6 hours via Vercel Cron to keep all connectors up to date

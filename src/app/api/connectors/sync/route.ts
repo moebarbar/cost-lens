@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/api/connectors/sync/route.ts
 // CostLens AI — Production Sync API
 // Triggers data sync, normalizes, writes to DB

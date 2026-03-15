@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/api/teams/route.ts
 // CostLens AI — Teams & Attribution API
 // Manage teams and map API keys to teams for cost attribution

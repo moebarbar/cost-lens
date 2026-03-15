@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/api/costs/route.ts
 // CostLens AI — Cost Records API
 // GET: Query cost records with filtering, pagination, and grouping

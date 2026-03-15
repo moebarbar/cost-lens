@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/api/connectors/route.ts
 // CostLens AI — Connector Management API (Production-ready)
 // GET: List all connectors

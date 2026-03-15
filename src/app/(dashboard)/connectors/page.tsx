@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useConnectors, addConnector, deleteConnector, syncConnector } from "@/hooks/use-api";
+import Link from "next/link";
 import { Plug, Zap, AlertTriangle, ShieldCheck, PowerOff, Database, Key, ServerCog } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlowButton } from "@/components/ui/GlowButton";
@@ -167,11 +168,11 @@ export default function ConnectorsPage() {
                         LAST UPLINK: {conn.lastSyncAt ? new Date(conn.lastSyncAt).toLocaleString() : "AWAITING FIRST SYNC"}
                       </div>
                       
-                      <div className="flex gap-3">
+                      <div className="flex gap-2">
                         <button
                           className={`flex-1 flex items-center justify-center gap-2 h-10 rounded-lg font-heading font-medium text-sm transition-all border ${
-                            isSyncing 
-                              ? 'bg-white/10 border-white/20 text-white cursor-wait' 
+                            isSyncing
+                              ? 'bg-white/10 border-white/20 text-white cursor-wait'
                               : 'bg-black/40 border-white/10 text-[#94A3B8] hover:text-[#00F0FF] hover:border-[#00F0FF]/30 hover:bg-[#00F0FF]/5'
                           }`}
                           onClick={() => handleSync(conn.provider)}
@@ -180,10 +181,17 @@ export default function ConnectorsPage() {
                           {isSyncing ? (
                             <><div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> SYNCING...</>
                           ) : (
-                            <><Zap className="w-4 h-4" /> INITIATE SYNC</>
+                            <><Zap className="w-4 h-4" /> SYNC</>
                           )}
                         </button>
-                        <button 
+                        <Link
+                          href={`/connectors/${conn.id}/setup`}
+                          className="flex items-center justify-center gap-1.5 h-10 px-3 rounded-lg border border-white/10 bg-black/40 text-[#475569] hover:text-[#8B5CF6] hover:border-[#8B5CF6]/30 hover:bg-[#8B5CF6]/10 transition-colors text-xs font-mono"
+                          title="Manage API Key Attribution"
+                        >
+                          <Key className="w-3.5 h-3.5" /> KEYS
+                        </Link>
+                        <button
                           className="w-10 h-10 flex items-center justify-center rounded-lg border border-white/10 bg-black/40 text-[#475569] hover:text-[#FF3366] hover:border-[#FF3366]/30 hover:bg-[#FF3366]/10 transition-colors"
                           onClick={() => handleDelete(conn.id)}
                           title="Sever Link"

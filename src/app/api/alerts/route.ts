@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/api/alerts/route.ts
 // CostLens AI — Budget Alerts API
 // CRUD operations for budget alerts

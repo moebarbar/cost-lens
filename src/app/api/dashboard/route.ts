@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/api/dashboard/route.ts
 // CostLens AI — Dashboard API
 // Returns all data needed for the main dashboard view

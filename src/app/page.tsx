@@ -283,7 +283,7 @@ export default function LandingPage() {
                   <GlowButton href="/register" variant="primary" className="h-12 px-6 text-sm" icon={<ChevronRight className="w-4 h-4" />}>
                     Start for Free
                   </GlowButton>
-                  <GlowButton href="#features" variant="ghost" className="h-12 px-6 text-sm border border-white/10">
+                  <GlowButton href="#how-it-works" variant="ghost" className="h-12 px-6 text-sm border border-white/10">
                     See How It Works
                   </GlowButton>
                 </div>

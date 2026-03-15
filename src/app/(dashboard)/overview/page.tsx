@@ -3,6 +3,7 @@
 import { useDashboard } from "@/hooks/use-api";
 import { useDashboardPeriod } from "../dashboard-context";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import Link from "next/link";
 import { Zap, AlertTriangle, ArrowUpRight, ArrowDownRight, ShieldAlert, Cpu, DollarSign } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ScanLine } from "@/components/ui/ScanLine";
@@ -160,6 +161,10 @@ export default function CommandPage() {
   const byProvider = data?.byProvider ?? [];
   const timeSeries = data?.timeSeries ?? [];
   const anomalies = data?.anomalies ?? [];
+  const waste = data?.waste;
+
+  // Unattributed key warning: waste categories include "unused_connectors"
+  const unattributedWaste = waste?.categories?.find(c => c.type === "unused_connectors");
 
   // Colors mapping matching globals.css accents
   const provColors: Record<string, string> = {
@@ -171,7 +176,24 @@ export default function CommandPage() {
 
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-12">
-      
+
+      {/* Unattributed Key Warning Banner */}
+      {unattributedWaste && (
+        <div className="flex items-center gap-4 p-4 bg-[#FFB800]/5 border border-[#FFB800]/20 rounded-xl">
+          <AlertTriangle className="w-5 h-5 text-[#FFB800] shrink-0 animate-pulse" />
+          <p className="text-sm text-[#FFB800] flex-1">
+            <span className="font-bold">Unattributed spend detected.</span>{" "}
+            {unattributedWaste.description}
+          </p>
+          <Link
+            href="/connectors"
+            className="text-xs font-mono text-[#FFB800] border border-[#FFB800]/30 rounded-lg px-3 py-1.5 hover:bg-[#FFB800]/10 transition-colors whitespace-nowrap"
+          >
+            Set up attribution →
+          </Link>
+        </div>
+      )}
+
       {/* Metric Cards Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard

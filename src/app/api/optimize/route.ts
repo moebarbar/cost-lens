@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/api/optimize/route.ts
 // CostLens AI — Optimization Suggestions API
 // Returns AI model switch recommendations based on usage patterns

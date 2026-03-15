@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/api/auth/me/route.ts
 // CostLens AI — Get Current User Info
 
