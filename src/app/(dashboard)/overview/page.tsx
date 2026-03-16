@@ -4,7 +4,7 @@ import { useDashboard } from "@/hooks/use-api";
 import { useDashboardPeriod } from "../dashboard-context";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import Link from "next/link";
-import { Zap, AlertTriangle, ArrowUpRight, ArrowDownRight, ShieldAlert, Cpu, DollarSign } from "lucide-react";
+import { Zap, AlertTriangle, ArrowUpRight, ArrowDownRight, ShieldAlert, Cpu, DollarSign, Layers } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ScanLine } from "@/components/ui/ScanLine";
 import { useState, useEffect } from "react";
@@ -159,6 +159,7 @@ export default function CommandPage() {
 
   const overview = data?.overview;
   const byProvider = data?.byProvider ?? [];
+  const byModel = data?.byModel ?? [];
   const timeSeries = data?.timeSeries ?? [];
   const anomalies = data?.anomalies ?? [];
   const waste = data?.waste;
@@ -304,6 +305,57 @@ export default function CommandPage() {
           </div>
         )}
       </GlassCard>
+
+      {/* Model Breakdown */}
+      {byModel.length > 0 && (
+        <GlassCard animateIn delayIndex={6} className="p-6">
+          <div className="flex items-center gap-3 mb-5 border-b border-white/10 pb-4">
+            <Layers className="w-5 h-5 text-[#8B5CF6]" />
+            <h2 className="font-heading font-bold text-lg text-white uppercase tracking-widest">Model Breakdown</h2>
+            <div className="ml-auto text-xs font-mono text-[#475569]">{byModel.length} MODELS</div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm font-mono">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wider text-[#475569] border-b border-white/5">
+                  <th className="text-left pb-3 font-medium">Model</th>
+                  <th className="text-right pb-3 font-medium">Requests</th>
+                  <th className="text-right pb-3 font-medium">Tokens</th>
+                  <th className="text-right pb-3 font-medium">Avg / Req</th>
+                  <th className="text-right pb-3 font-medium">Total Cost</th>
+                  <th className="pb-3 w-32" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {byModel.slice(0, 8).map((m, i) => {
+                  const maxCost = byModel[0]?.totalCost || 1;
+                  const pct = (m.totalCost / maxCost) * 100;
+                  return (
+                    <tr key={`${m.provider}-${m.model}-${i}`} className="group hover:bg-white/3 transition-colors">
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6]" />
+                          <span className="text-white font-medium truncate max-w-[180px]">{m.model || "unknown"}</span>
+                          <span className="text-[10px] text-[#475569] hidden sm:inline">{m.provider}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 text-right text-[#94A3B8]">{m.requestCount.toLocaleString()}</td>
+                      <td className="py-3 text-right text-[#94A3B8]">{m.totalTokens.toLocaleString()}</td>
+                      <td className="py-3 text-right text-[#94A3B8]">${m.avgCostPerRequest.toFixed(4)}</td>
+                      <td className="py-3 text-right font-bold text-[#00FF88]">${m.totalCost.toFixed(2)}</td>
+                      <td className="py-3 pl-4">
+                        <div className="h-1 bg-black/40 rounded-full overflow-hidden">
+                          <div className="h-full bg-[#8B5CF6] rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </GlassCard>
+      )}
 
       {/* Two Column Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

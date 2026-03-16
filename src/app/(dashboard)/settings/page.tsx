@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlowButton } from "@/components/ui/GlowButton";
-import { Settings, Shield, Bell, Palette, Database, Key, Save, User } from "lucide-react";
+import { Settings, Shield, Bell, Palette, Database, Key, Save, User, Plug, Check, X, Loader2, AlertTriangle } from "lucide-react";
+import { useConnectors, addConnector, deleteConnector } from "@/hooks/use-api";
+import { testConnectorCredentials } from "@/hooks/useProviderData";
 
 const SECTIONS = [
   { id: "profile",       label: "Profile",        icon: User },
@@ -11,6 +13,7 @@ const SECTIONS = [
   { id: "notifications", label: "Notifications",   icon: Bell },
   { id: "appearance",    label: "Appearance",      icon: Palette },
   { id: "data",          label: "Data & Privacy",  icon: Database },
+  { id: "credentials",   label: "Credentials",     icon: Plug },
   { id: "api",           label: "API Keys",        icon: Key },
 ];
 
@@ -76,6 +79,7 @@ export default function SettingsPage() {
           {activeSection === "notifications" && <NotificationsSection />}
           {activeSection === "appearance" && <AppearanceSection />}
           {activeSection === "data" && <DataSection />}
+          {activeSection === "credentials" && <CredentialsSection />}
           {activeSection === "api" && <ApiSection />}
         </GlassCard>
       </div>
@@ -232,6 +236,207 @@ function DataSection() {
           Terminate Account
         </button>
       </FieldRow>
+    </>
+  );
+}
+
+function CredentialsSection() {
+  const { data: connectors, refetch } = useConnectors();
+
+  const openaiConnector = connectors?.find(c => c.provider === "OPENAI");
+
+  const [apiKey, setApiKey] = useState("");
+  const [orgId, setOrgId] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  async function handleTest() {
+    if (!apiKey.trim()) return;
+    setTesting(true);
+    setTestResult(null);
+    const creds: Record<string, string> = { apiKey: apiKey.trim() };
+    if (orgId.trim()) creds.organizationId = orgId.trim();
+    const res = await testConnectorCredentials("OPENAI", creds);
+    setTestResult({ ok: res.success, msg: res.success ? "Connection successful" : (res.error ?? "Test failed") });
+    setTesting(false);
+  }
+
+  async function handleSave() {
+    if (!apiKey.trim()) return;
+    setSaving(true);
+    setSaveMsg(null);
+    const creds: Record<string, string> = { apiKey: apiKey.trim() };
+    if (orgId.trim()) creds.organizationId = orgId.trim();
+    const res = await addConnector("OPENAI", creds);
+    if (res.success) {
+      setSaveMsg("OpenAI connected!");
+      setApiKey("");
+      setOrgId("");
+      refetch();
+    } else {
+      setSaveMsg(res.error ?? "Failed to connect");
+    }
+    setSaving(false);
+  }
+
+  async function handleDisconnect() {
+    if (!openaiConnector) return;
+    setDisconnecting(true);
+    await deleteConnector(openaiConnector.id);
+    refetch();
+    setDisconnecting(false);
+  }
+
+  const isConnected = !!openaiConnector && openaiConnector.status === "active";
+  const hasError = openaiConnector?.status === "error";
+
+  return (
+    <>
+      <SectionHeader
+        title="Credentials"
+        description="Connect AI providers to start tracking real spend data"
+      />
+
+      {/* OpenAI */}
+      <div className="flex flex-col gap-6">
+        <div className="p-5 border border-white/10 rounded-xl bg-black/20">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#00A67E]/10 border border-[#00A67E]/20 flex items-center justify-center text-lg">🟢</div>
+              <div>
+                <div className="font-heading font-bold text-white">OpenAI</div>
+                <div className="text-xs font-mono text-[#94A3B8]">GPT-4o · o1 · DALL-E · Whisper · TTS</div>
+              </div>
+            </div>
+            <div className={`flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded-full border ${
+              isConnected
+                ? "text-[#00FF88] bg-[#00FF88]/5 border-[#00FF88]/20"
+                : hasError
+                  ? "text-[#FF3366] bg-[#FF3366]/5 border-[#FF3366]/20"
+                  : "text-[#475569] bg-white/5 border-white/10"
+            }`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-[#00FF88]" : hasError ? "bg-[#FF3366]" : "bg-[#475569]"}`} />
+              {isConnected ? "CONNECTED" : hasError ? "ERROR" : "DISCONNECTED"}
+            </div>
+          </div>
+
+          {isConnected || hasError ? (
+            <div className="flex flex-col gap-3">
+              {openaiConnector && (
+                <div className="text-xs font-mono text-[#94A3B8] bg-black/30 border border-white/5 rounded-lg p-3 flex flex-col gap-1">
+                  <div>Last sync: {openaiConnector.lastSyncAt ? new Date(openaiConnector.lastSyncAt).toLocaleString() : "Never"}</div>
+                  <div>Records: {openaiConnector.recordCount.toLocaleString()}</div>
+                  {openaiConnector.lastError && (
+                    <div className="text-[#FF3366] flex items-center gap-1 mt-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      {openaiConnector.lastError}
+                    </div>
+                  )}
+                </div>
+              )}
+              <GlowButton
+                variant="outline"
+                className="text-sm text-[#FF3366] border-[#FF3366]/30 hover:bg-[#FF3366]/10"
+                onClick={handleDisconnect}
+                disabled={disconnecting}
+              >
+                {disconnecting ? "Disconnecting..." : "Disconnect OpenAI"}
+              </GlowButton>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <FieldRow
+                label="Admin API Key"
+                hint="Use an admin key (sk-admin-...) from platform.openai.com → Settings → API Keys"
+              >
+                <input
+                  className="input font-mono text-sm tracking-wider"
+                  type="password"
+                  placeholder="sk-admin-..."
+                  value={apiKey}
+                  onChange={e => { setApiKey(e.target.value); setTestResult(null); setSaveMsg(null); }}
+                />
+              </FieldRow>
+              <FieldRow
+                label="Organization ID"
+                hint="Optional — from platform.openai.com → Settings → Organization"
+              >
+                <input
+                  className="input font-mono text-sm"
+                  type="text"
+                  placeholder="org-..."
+                  value={orgId}
+                  onChange={e => setOrgId(e.target.value)}
+                />
+              </FieldRow>
+
+              {testResult && (
+                <div className={`flex items-center gap-2 text-sm font-mono p-3 rounded-lg border ${
+                  testResult.ok
+                    ? "text-[#00FF88] bg-[#00FF88]/5 border-[#00FF88]/20"
+                    : "text-[#FF3366] bg-[#FF3366]/5 border-[#FF3366]/20"
+                }`}>
+                  {testResult.ok ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                  {testResult.msg}
+                </div>
+              )}
+
+              {saveMsg && (
+                <div className={`flex items-center gap-2 text-sm font-mono p-3 rounded-lg border ${
+                  saveMsg.includes("connected")
+                    ? "text-[#00FF88] bg-[#00FF88]/5 border-[#00FF88]/20"
+                    : "text-[#FF3366] bg-[#FF3366]/5 border-[#FF3366]/20"
+                }`}>
+                  {saveMsg.includes("connected") ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                  {saveMsg}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-2">
+                <GlowButton
+                  variant="outline"
+                  className="text-sm"
+                  onClick={handleTest}
+                  disabled={!apiKey.trim() || testing}
+                  icon={testing ? <Loader2 className="w-4 h-4 animate-spin" /> : undefined}
+                >
+                  {testing ? "Testing..." : "Test Connection"}
+                </GlowButton>
+                <GlowButton
+                  variant="primary"
+                  className="text-sm"
+                  onClick={handleSave}
+                  disabled={!apiKey.trim() || saving}
+                  icon={saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plug className="w-4 h-4" />}
+                >
+                  {saving ? "Connecting..." : "Connect OpenAI"}
+                </GlowButton>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Coming soon providers */}
+        {(["Anthropic", "AWS Bedrock"] as const).map(name => (
+          <div key={name} className="p-5 border border-white/5 rounded-xl bg-black/10 opacity-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-lg">
+                  {name === "Anthropic" ? "🟠" : "🟡"}
+                </div>
+                <div>
+                  <div className="font-heading font-bold text-white">{name}</div>
+                  <div className="text-xs font-mono text-[#94A3B8]">Configure from the Connectors page</div>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono text-[#475569] bg-white/5 border border-white/10 px-2 py-1 rounded">AVAILABLE</span>
+            </div>
+          </div>
+        ))}
+      </div>
     </>
   );
 }
