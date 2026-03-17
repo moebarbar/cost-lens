@@ -126,7 +126,7 @@ export interface SpendByModel {
 export interface SpendTimeSeries {
   date: string;               // ISO date YYYY-MM-DD
   totalCost: number;
-  byProvider: Record<AIProvider, number>;
+  byProvider: Record<string, number>;  // keyed by AIProvider string; sparse (only providers with spend)
   byTeam: Record<string, number>;
 }
 

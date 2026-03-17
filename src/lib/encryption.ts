@@ -10,13 +10,23 @@ const SALT_LENGTH = 32;
 const TAG_LENGTH = 16;
 const KEY_LENGTH = 32;
 
-function deriveKey(salt: Buffer): Buffer {
+/**
+ * Validate that ENCRYPTION_KEY is set and return it.
+ * Called at startup or before any crypto operation.
+ */
+export function getEncryptionKey(): string {
   const key = process.env.ENCRYPTION_KEY;
   if (!key) {
     throw new Error("ENCRYPTION_KEY environment variable is not set");
   }
-  // Derive a proper key using the per-encryption random salt
-  return scryptSync(key, salt, KEY_LENGTH);
+  return key;
+}
+
+function deriveKey(salt: Buffer): Buffer {
+  // Derive a 32-byte key from the master ENCRYPTION_KEY + per-encryption random salt.
+  // Using a random salt per encryption means each call produces a unique derived key,
+  // which is stronger than a single static key for all records.
+  return scryptSync(getEncryptionKey(), salt, KEY_LENGTH);
 }
 
 /**
@@ -86,3 +96,9 @@ export function decryptCredentials(
   const decrypted = decrypt(encryptedCredentials);
   return JSON.parse(decrypted);
 }
+
+// Self-test (uncomment to verify the encryption round-trip works):
+// const test = encrypt("sk-admin-abc123xyz");
+// console.log("Encrypted:", test);
+// console.log("Decrypted:", decrypt(test));
+// Should print original: "sk-admin-abc123xyz"
