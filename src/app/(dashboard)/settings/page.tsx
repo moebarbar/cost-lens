@@ -4,7 +4,7 @@ import { useState } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlowButton } from "@/components/ui/GlowButton";
 import { Settings, Shield, Bell, Palette, Database, Key, Save, User, Plug, Check, X, Loader2, AlertTriangle } from "lucide-react";
-import { useConnectors, addConnector, deleteConnector } from "@/hooks/use-api";
+import { useCredentials, saveCredential, removeCredential } from "@/hooks/use-api";
 import { testConnectorCredentials } from "@/hooks/useProviderData";
 
 const SECTIONS = [
@@ -241,9 +241,9 @@ function DataSection() {
 }
 
 function CredentialsSection() {
-  const { data: connectors, refetch } = useConnectors();
+  const { data: credentials, refetch } = useCredentials();
 
-  const openaiConnector = connectors?.find(c => c.provider === "OPENAI");
+  const openaiCred = credentials?.find(c => c.provider === "OPENAI");
 
   const [apiKey, setApiKey] = useState("");
   const [orgId, setOrgId] = useState("");
@@ -270,7 +270,7 @@ function CredentialsSection() {
     setSaveMsg(null);
     const creds: Record<string, string> = { apiKey: apiKey.trim() };
     if (orgId.trim()) creds.organizationId = orgId.trim();
-    const res = await addConnector("OPENAI", creds);
+    const res = await saveCredential("OPENAI", creds);
     if (res.success) {
       setSaveMsg("OpenAI connected!");
       setApiKey("");
@@ -283,15 +283,14 @@ function CredentialsSection() {
   }
 
   async function handleDisconnect() {
-    if (!openaiConnector) return;
     setDisconnecting(true);
-    await deleteConnector(openaiConnector.id);
+    await removeCredential("OPENAI");
     refetch();
     setDisconnecting(false);
   }
 
-  const isConnected = !!openaiConnector && openaiConnector.status === "active";
-  const hasError = openaiConnector?.status === "error";
+  const isConnected = openaiCred?.status === "active";
+  const hasError = openaiCred?.status === "error";
 
   return (
     <>
@@ -325,14 +324,14 @@ function CredentialsSection() {
 
           {isConnected || hasError ? (
             <div className="flex flex-col gap-3">
-              {openaiConnector && (
+              {openaiCred && (
                 <div className="text-xs font-mono text-[#94A3B8] bg-black/30 border border-white/5 rounded-lg p-3 flex flex-col gap-1">
-                  <div>Last sync: {openaiConnector.lastSyncAt ? new Date(openaiConnector.lastSyncAt).toLocaleString() : "Never"}</div>
-                  <div>Records: {openaiConnector.recordCount.toLocaleString()}</div>
-                  {openaiConnector.lastError && (
+                  <div>Last sync: {openaiCred.lastSyncAt ? new Date(openaiCred.lastSyncAt).toLocaleString() : "Never"}</div>
+                  <div>Records: {openaiCred.recordCount.toLocaleString()}</div>
+                  {openaiCred.lastError && (
                     <div className="text-[#FF3366] flex items-center gap-1 mt-1">
                       <AlertTriangle className="w-3 h-3" />
-                      {openaiConnector.lastError}
+                      {openaiCred.lastError}
                     </div>
                   )}
                 </div>

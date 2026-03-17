@@ -378,3 +378,34 @@ export async function register(data: {
 export async function logout() {
   return apiFetch("/auth/logout", { method: "POST" });
 }
+
+// ============================================================
+// Credentials Hooks
+// ============================================================
+
+export interface CredentialStatus {
+  provider: string;
+  status: "active" | "error" | "pending" | "disabled";
+  lastSyncAt: string | null;
+  recordCount: number;
+  lastError: string | null;
+  connectorId: string;
+}
+
+export function useCredentials() {
+  return useApiQuery<CredentialStatus[]>("/credentials");
+}
+
+export async function saveCredential(
+  provider: string,
+  credentials: Record<string, string>
+) {
+  return apiFetch("/credentials", {
+    method: "POST",
+    body: JSON.stringify({ provider, credentials }),
+  });
+}
+
+export async function removeCredential(provider: string) {
+  return apiFetch(`/credentials/${provider}`, { method: "DELETE" });
+}

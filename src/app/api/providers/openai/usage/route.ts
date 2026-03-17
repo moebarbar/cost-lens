@@ -6,8 +6,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { decryptCredentials } from "@/lib/encryption";
+import { getCredential } from "@/lib/services/credentials";
 import { OpenAIConnector } from "@/lib/connectors/openai";
 import type { OpenAIUsageResponse } from "@/types/usage";
 
@@ -23,31 +22,24 @@ export async function GET(request: NextRequest) {
       ? new Date(searchParams.get("dateFrom")!)
       : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    // Find the org's OpenAI connector
-    const connector = await prisma.connector.findUnique({
-      where: {
-        organizationId_provider: {
-          organizationId: user.organizationId,
-          provider: "OPENAI",
-        },
-      },
-    });
-
-    if (!connector) {
+    // Fetch decrypted credentials via the credentials service
+    let credentials: Record<string, string>;
+    try {
+      const creds = await getCredential(user.organizationId, "OPENAI");
+      if (!creds) {
+        return NextResponse.json(
+          { success: false, error: "OpenAI not connected. Add your API key in Settings → Credentials." },
+          { status: 404 }
+        );
+      }
+      credentials = creds;
+    } catch {
       return NextResponse.json(
-        { success: false, error: "OpenAI connector not configured. Add your API key in Settings → Credentials." },
-        { status: 404 }
+        { success: false, error: "Failed to decrypt OpenAI credentials" },
+        { status: 500 }
       );
     }
 
-    if (connector.status === "DISABLED") {
-      return NextResponse.json(
-        { success: false, error: "OpenAI connector is disabled" },
-        { status: 400 }
-      );
-    }
-
-    const credentials = decryptCredentials(connector.credentialId);
     const openai = new OpenAIConnector(credentials, user.organizationId);
     const records = await openai.fetchUsage({ dateFrom, dateTo });
 
